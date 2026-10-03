@@ -2,6 +2,7 @@
 function commentary(){
   const t = D.dv[D.td] || {}, ids = Object.keys(t).sort((a,b)=>t[b]-t[a]);
   const charged = Object.keys(D.nominated[D.td] || {}).length;
+  if (!votingOpen()) return charged ? `${charged} ${charged===1?"suspect":"suspects"} charged so far. Voting opens at 5 PM. Build your case.` : "Voting opens at 5 PM. Plenty of time for someone to do something dumb.";
   if (!ids.length) return charged ? `${charged} ${charged===1?"suspect":"suspects"} charged and nobody has voted. Do your civic duty.` : "Zero votes. Either you all got smarter overnight, or you're cowards. It's the second one.";
   const [a, b] = ids;
   if (b && t[a] === t[b]) return `Dead heat between ${firstNm(a)} and ${firstNm(b)}. Nobody has thought this hard all semester.`;
@@ -132,7 +133,7 @@ function suspectCard(uid, t, top, myVote){
     trial,
     h("div",{class:"btnrow"},
       self ? (appeal ? null : h("button",{class:"btn",onclick:()=>{ S.showAppeal = !S.showAppeal; render(); }},"🧑‍⚖️ Appeal")) :
-        h("button",{class:"btn "+(picked?"hi":"primary"),disabled:acquitted,onclick:()=>vote(uid)}, picked ? "Your pick" : acquitted ? "Acquitted" : "Vote Himmest"),
+        h("button",{class:"btn "+(picked?"hi":"primary"),disabled:acquitted||!votingOpen(),onclick:()=>vote(uid)}, picked ? "Your pick" : acquitted ? "Acquitted" : votingOpen() ? "Vote Himmest" : "🔒 Opens 5 PM"),
       self ? null : h("button",{class:"btn ghost",onclick:()=>{ S.reasonFor = uid; render(); scrollTo({top:0,behavior:"smooth"}); }},"+ Add charge")),
     self && !appeal && S.showAppeal ? appealForm() : null,
     commentsBox(`nc:${td}:${uid}`));
@@ -156,11 +157,16 @@ async function verdictVote(uid, v){
   if (await write("verdicts",{ days:keep })) toast(v === "guilty" ? "🔨 Guilty. Justice is served." : "😇 Innocent. Soft.");
 }
 async function vote(uid){
-  const td = D.td, days = { ...(mine("votes").days||{}) };
-  if (days[td] === uid) return;
-  const first = !days[td]; days[td] = uid;
-  const keep = {}; for (const k of Object.keys(days).sort().slice(-1000)) keep[k] = days[k];
-  if (await write("votes",{days:keep})) {
+  const td = D.td;
+  if (!votingOpen()) {
+    S.reasonFor = uid; draft.nom = { about:uid, reason:"" };
+    toast(`Voting opens at 5 PM. File a charge against ${firstNm(uid)} for now.`); render(); scrollTo({top:0,behavior:"smooth"}); return;
+  }
+  const days = { ...(mine("votes").days||{}) }, at = { ...(mine("votes").at||{}) };
+  if (days[td] === uid && voteCounts(S.uid, td)) return;
+  const first = !voteCounts(S.uid, td); days[td] = uid; at[td] = Date.now();
+  const keep = {}, keepAt = {}; for (const k of Object.keys(days).sort().slice(-1000)) { keep[k] = days[k]; if (at[k]) keepAt[k] = at[k]; }
+  if (await write("votes",{days:keep, at:keepAt})) {
     toast(first ? `Vote locked in for ${firstNm(uid)}. +${ALLOW_HB} HB tomorrow for voting.` : `Switched to ${firstNm(uid)}. Flip-flopper.`); confetti();
     const charged = D.noms.some(n=>n.author===S.uid && n.day===td && n.about===uid);
     if (!charged) { S.reasonFor = uid; draft.nom = { about:uid, reason:"" }; }
@@ -175,26 +181,30 @@ function receiptsCard(day){
     h("div",{style:"margin-top:8px"}, r.map(x=>h("div",{class:"r"}, avatar(x.voter,"sm"), h("b",null,firstNm(x.voter)), " voted ", avatar(x.target,"sm"), h("b",null,firstNm(x.target))))));
 }
 function viewToday(L){
-  const td = D.td, t = D.dv[td] || {}, myVote = mine("votes").days?.[td];
+  const td = D.td, t = D.dv[td] || {}, rawVote = mine("votes").days?.[td], myVote = rawVote && voteCounts(S.uid, td) ? rawVote : null, open = votingOpen();
   const inPlay = new Set([...Object.keys(D.nominated[td] || {}), ...Object.keys(t), ...Object.keys(D.accused[td] || {})].filter(isMember));
   const suspects = [...inPlay].sort((a,b)=>(t[b]||0)-(t[a]||0) || nm(a).localeCompare(nm(b)));
   const rest = members().filter(u=>!inPlay.has(u)).sort((a,b)=>nm(a).localeCompare(nm(b)));
   const top = Math.max(0, ...Object.values(t));
   const hero = h("div",{class:"hero"},
-    h("div",{class:"head",style:"margin:0"}, h("span",{class:"label"}, fmtDay(td)), h("span",{class:"pill live"}, `Polls close in ${fmtDur(secsToMidnight())}`)),
+    h("div",{class:"head",style:"margin:0"}, h("span",{class:"label"}, fmtDay(td)),
+      open ? h("span",{class:"pill live"}, `Voting open · closes in ${fmtDur(secsToMidnight())}`) : h("span",{class:"pill closed"}, `🔒 Voting opens 5 PM · in ${fmtDur(secsToOpen())}`)),
     h("h1",null,"Who was the Himmest today?"),
+    open ? null : h("p",{style:"font-weight:700"}, "Voting is open 5 PM – 11:59 PM. Until then, tap a face to file a charge and build your case."),
+    rawVote && !myVote ? h("p",{class:"err"}, `Your vote for ${firstNm(rawVote)} was cast before 5 PM and doesn't count. Vote again ${open ? "now" : "after 5 PM"}.`) : null,
     h("p",{class:"q"}, PROMPTS[dayIndex(td) % PROMPTS.length]),
     h("div",{class:"commentary"}, h("b",null,"ON AIR"), h("span",null, commentary())));
   const picker = rest.length ? h("div",{class:"stack",style:"gap:8px"},
-    h("div",{class:"label"}, suspects.length ? "Or vote someone new" : "Tap a face to vote"),
+    h("div",{class:"label"}, open ? (suspects.length ? "Or vote someone new" : "Tap a face to vote") : (suspects.length ? "Or charge someone new" : "Tap a face to file a charge")),
     h("div",{class:"voters"}, rest.map(u=>{
       const self = u===S.uid;
       return h("button",{class:"vcard",disabled:self,"aria-label":self?`${nm(u)} (you can't vote for yourself)`:`Vote ${nm(u)} Himmest`,onclick:()=>vote(u)},
-        himBadge(u), avatar(u,"lg"), h("div",{class:"nmv"}, nm(u), self ? " (you)" : ""), self ? h("div",{class:"small muted"},"Can't vote yourself") : h("div",{class:"label"},"Tap to vote"));
+        himBadge(u), avatar(u,"lg"), h("div",{class:"nmv"}, nm(u), self ? " (you)" : ""), self ? h("div",{class:"small muted"},"Can't vote yourself") : h("div",{class:"label"}, votingOpen() ? "Tap to vote" : "Tap to charge"));
     }))) : null;
   const how = h("details",{class:"card how"}, h("summary",null,"How it works (for the slow ones)"),
     h("ul",null,
-      h("li",null,"Tap a face to vote for today's Himmest. Say what he did if you want it roasted."),
+      h("li",null,"Voting is open 5 PM – 11:59 PM. Votes before 5 PM don't count. You can switch until midnight."),
+      h("li",null,"Before 5 PM, tap a face to file a charge. After 5 PM, tap a face to vote. Say what he did if you want it roasted."),
       h("li",null,"Most votes at midnight wins the day."),
       h("li",null,"Him Points: 1 per vote you get, +3 for winning a day, +2 for the day's best quote, +2 for the day's best moment."),
       h("li",null,"Most Him Points Monday to Sunday = The Himmest of the Week. Tie? Most active wins, then most votes, then a coin flip."),

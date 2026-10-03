@@ -54,6 +54,15 @@ function etParts(d = new Date()){
 }
 const today = () => etParts().day;
 function secsToMidnight(){ const p = etParts(); return 86400 - (p.h*3600+p.m*60+p.s); }
+/* Voting is open 5:00 PM – 11:59 PM Eastern. From VOTE_RULE_FROM on, votes cast outside that window don't count. */
+const VOTE_OPEN_HOUR = 17, VOTE_RULE_FROM = "2026-10-03";
+const votingOpen = () => etParts().h >= VOTE_OPEN_HOUR;
+function secsToOpen(){ const p = etParts(); return VOTE_OPEN_HOUR*3600 - (p.h*3600+p.m*60+p.s); }
+function voteCounts(voter, d){
+  if (d < VOTE_RULE_FROM) return true;
+  const at = S.votes[voter]?.at?.[d]; if (!at) return false;
+  const p = etParts(new Date(at)); return p.day === d && p.h >= VOTE_OPEN_HOUR;
+}
 function fmtDur(s){ s=Math.max(0,s|0); const d=Math.floor(s/86400), h=Math.floor(s%86400/3600), m=Math.floor(s%3600/60); return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m ${s%60}s`; }
 function dayIndex(k){ const [y,m,d]=k.split("-").map(Number); return Math.floor(Date.UTC(y,m-1,d)/864e5); }
 function keyOf(i){ return new Date(i*864e5).toISOString().slice(0,10); }
@@ -248,7 +257,7 @@ function derive(){
   for (const [voter, v] of Object.entries(S.votes)) {
     if (!isMember(voter)) continue;
     for (const [d, t] of Object.entries(v?.days||{})) {
-      if (!isMember(t) || t === voter || d > td) continue;
+      if (!isMember(t) || t === voter || d > td || !voteCounts(voter, d)) continue;
       (receipts[d] ||= []).push({ voter, target:t });
       if (acquitted(d, t)) continue;
       (dv[d] ||= {}); dv[d][t] = (dv[d][t]||0) + 1; add(d, t, PTS_VOTE, "votes");
@@ -316,7 +325,7 @@ function whyText(br){
 /* Activity in a date range: votes cast, charges filed, moments posted, quotes logged. Used to break ties. */
 function activity(uid, start, end){
   const inR = d => d >= start && d <= end;
-  let n = Object.entries(S.votes[uid]?.days || {}).filter(([d, t]) => inR(d) && isMember(t) && t !== uid).length;
+  let n = Object.entries(S.votes[uid]?.days || {}).filter(([d, t]) => inR(d) && isMember(t) && t !== uid && voteCounts(uid, d)).length;
   n += D.noms.filter(x=>x.author===uid && inR(x.day)).length;
   n += D.photos.filter(x=>x.author===uid && inR(x.day)).length;
   n += D.quotes.filter(x=>x.author===uid && inR(x.day)).length;
@@ -375,7 +384,7 @@ function ledger(){
   const td = D.td, bal = {}, hist = {};
   for (const u of members()) {
     const days = S.votes[u]?.days || {};
-    const voted = Object.keys(days).filter(d => d < td && isMember(days[d]) && days[d] !== u).length;
+    const voted = Object.keys(days).filter(d => d < td && isMember(days[d]) && days[d] !== u && voteCounts(u, d)).length;
     bal[u] = START_HB + ALLOW_HB * voted; hist[u] = [];
   }
   const groups = {};

@@ -91,3 +91,25 @@ export function etDay(d = new Date()) {
   for (const x of new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(d)) p[x.type] = x.value;
   return `${p.year}-${p.month}-${p.day}`;
 }
+
+/* Voting window: 5:00 PM to 11:59 PM Eastern. Votes from VOTE_RULE_FROM on only count when cast inside it. */
+export const VOTE_OPEN_HOUR = 17;
+export function etHour(d = new Date()) {
+  return Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "numeric", hourCycle: "h23" }).format(d)) % 24;
+}
+/* The server, not the phone, decides when a vote was cast. */
+export function stampVotes(prev, next) {
+  const now = new Date(), today = etDay(now), open = etHour(now) >= VOTE_OPEN_HOUR;
+  const pd = prev?.days || {}, pa = prev?.at || {};
+  const validToday = ms => !!ms && etDay(new Date(ms)) === today && etHour(new Date(ms)) >= VOTE_OPEN_HOUR;
+  const days = next.days && typeof next.days === "object" ? next.days : {};
+  const at = {};
+  for (const [d, t] of Object.entries(days)) {
+    const recast = d === today && open && !validToday(pa[d]);
+    if (pd[d] === t && !recast) { if (pa[d]) at[d] = pa[d]; continue; }
+    if (d !== today) throw httpError(400, "You can only vote for today.");
+    if (!open) throw httpError(400, "Voting opens at 5 PM. File a charge for now.");
+    at[d] = now.getTime();
+  }
+  next.days = days; next.at = at;
+}
