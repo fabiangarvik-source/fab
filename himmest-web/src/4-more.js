@@ -252,6 +252,7 @@ async function logout(){
 /* ============ render + boot ============ */
 function render(){
   const main = document.getElementById("main");
+  if (!(authed && S.tab === "reels")) document.body.classList.remove("reels-mode");
   if (authed === false) {
     document.getElementById("tabs").hidden = true; document.getElementById("who").replaceChildren();
     D = { td:today(), quotes:[], photos:[], noms:[], dv:{} }; renderTicker();
@@ -271,8 +272,12 @@ function render(){
       h("h2",{style:"margin-bottom:6px"},"Make your profile"),
       h("p",{class:"muted",style:"margin-bottom:14px"},"Name and a selfie, so your friends know who to roast."),
       profileForm(null)));
-  else v = ({ today:viewToday, moments:viewMoments, quotes:viewQuotes, memories:viewMemories, me:viewMe }[S.tab] || viewToday)(L);
+  else v = ({ today:viewToday, moments:viewMoments, reels:viewReels, quotes:viewQuotes, memories:viewMemories, me:viewMe }[S.tab] || viewToday)(L);
+  /* Keep your place in Reels when new data arrives. */
+  const oldReels = document.getElementById("reels"), reelTop = oldReels ? oldReels.scrollTop : 0;
+  document.body.classList.toggle("reels-mode", S.tab === "reels" && isMember(S.uid));
   main.replaceChildren(v);
+  const newReels = document.getElementById("reels"); if (newReels && reelTop) newReels.scrollTop = reelTop;
   if (isMember(S.uid)) maybeCeremony();
 }
 function typing(){ const a = document.activeElement; return a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.type !== "file" && document.getElementById("main").contains(a); }

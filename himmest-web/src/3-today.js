@@ -235,14 +235,14 @@ function viewMoments(){
         e.preventDefault(); err.hidden = true;
         if (!dm.about) { err.textContent = "Tap who's in the photo."; err.hidden = false; return; }
         const sb = e.submitter; if (sb) sb.disabled = true;
-        let url; try { url = await uploadImg("photo", dm.img); } catch(x) { err.textContent = x.message; err.hidden = false; if (sb) sb.disabled = false; return; }
+        let url; try { url = await uploadImg("photo", await memeify(dm.img, dm.top, dm.bottom)); } catch(x) { err.textContent = x.message; err.hidden = false; if (sb) sb.disabled = false; return; }
         const list = items(mine("photos"), MAX_ITEMS-1).filter(x=>okImg(x.img));
-        list.push({ k:rid(), about:dm.about, caption:dm.caption.trim().slice(0,140), day:td, ts:Date.now(), img:url });
+        list.push({ k:rid(), about:dm.about, caption:dm.caption.trim().slice(0,140), day:td, ts:Date.now(), img:url, meme:!!((dm.top||"").trim() || (dm.bottom||"").trim()) || undefined });
         const who = dm.about;
-        if (await write("photos",{items:list})) { draft.moment = { img:null, about:"", caption:"" }; toast(`Posted. ${firstNm(who)} will never live this down.`); confetti(); render(); }
+        if (await write("photos",{items:list})) { draft.moment = { img:null, about:"", caption:"", top:"", bottom:"" }; toast(`Posted. ${firstNm(who)} will never live this down.`); confetti(); render(); }
         else if (sb) sb.disabled = false;
       }},
-      h("img",{class:"preview",src:dm.img,alt:"Your photo"}),
+      memePreview(dm),
       h("div",{class:"field"}, h("span",{class:"label"},"Who's the him?"), personPicker(dm.about, u=>{ dm.about=u; render(); }, "Who's in the photo", true)),
       h("div",{class:"field"}, h("label",{class:"label",for:"m-cap"},"Caption"),
         h("input",{id:"m-cap",maxlength:"140",value:dm.caption,placeholder:"pushed a pull door for two full minutes",oninput:e=>dm.caption=e.target.value})),
