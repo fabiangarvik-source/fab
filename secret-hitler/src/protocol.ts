@@ -26,6 +26,8 @@ export interface RoomSnapshot {
   view: GameView | null;
   botsAllowed: boolean;
   gameNumber: number;
+  /** Solo game against bots, running entirely in this browser. */
+  solo?: boolean;
 }
 
 type DistributiveOmit<T, K extends keyof never> = T extends unknown ? Omit<T, K> : never;

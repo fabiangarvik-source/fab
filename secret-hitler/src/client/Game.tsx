@@ -160,7 +160,7 @@ export function GameOver({ snap, onHide }: { snap: RoomSnapshot; onHide?: () => 
                 Play again
               </Button>
               <Button variant="ghost" onClick={() => op(snap.code, { op: "endGame" })} data-testid="back-to-lobby">
-                Back to lobby
+                {snap.solo ? "Change players" : "Back to lobby"}
               </Button>
             </>
           ) : snap.meId ? (
@@ -218,7 +218,7 @@ export function GameScreen({ snap, reconnecting }: { snap: RoomSnapshot; reconne
       <header className="flex items-center gap-2 border-b border-line px-3 py-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
         <div className="min-w-0 flex-1">
           <div className="font-display text-lg font-extrabold leading-none">
-            Room {snap.code} · {game.phase === "night" ? "Night" : `Round ${game.round}`}
+            {snap.solo ? "Solo" : `Room ${snap.code}`} · {game.phase === "night" ? "Night" : `Round ${game.round}`}
           </div>
           <div className="truncate text-xs text-muted" aria-live="polite" data-testid="ticker">
             {ticker}
@@ -281,20 +281,23 @@ export function GameScreen({ snap, reconnecting }: { snap: RoomSnapshot; reconne
             <span>Light &ldquo;paper&rdquo; mode</span>
             <input type="checkbox" className="h-6 w-6 accent-[var(--gold)]" checked={light} onChange={(e) => setLight(e.target.checked)} />
           </label>
-          <a className="flex min-h-12 items-center text-gold underline" href={`/table/${snap.code}`} target="_blank" rel="noreferrer">
-            Open the table screen (for a TV or laptop)
-          </a>
+          {!snap.solo && (
+            <a className="flex min-h-12 items-center text-gold underline" href={`/table/${snap.code}`} target="_blank" rel="noreferrer">
+              Open the table screen (for a TV or laptop)
+            </a>
+          )}
           {isHost && (
             <Button
               variant="danger"
               onClick={() => {
-                if (confirm("End this game for everyone and return to the lobby?")) {
+                if (confirm(snap.solo ? "Quit this game?" : "End this game for everyone and return to the lobby?")) {
                   void op(snap.code, { op: "endGame" });
                   setMenu(false);
                 }
               }}
+              data-testid="end-game"
             >
-              End game for everyone
+              {snap.solo ? "Quit game" : "End game for everyone"}
             </Button>
           )}
         </div>

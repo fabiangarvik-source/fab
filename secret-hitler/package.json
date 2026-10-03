@@ -12,7 +12,8 @@
     "start": "next start",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "e2e": "tsx scripts/e2e.ts"
+    "e2e": "tsx scripts/e2e.ts",
+    "e2e:solo": "tsx scripts/e2e-solo.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0",
