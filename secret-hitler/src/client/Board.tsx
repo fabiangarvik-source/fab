@@ -179,6 +179,11 @@ export function Seats({ game, members, meId, big }: { game: PublicGame; members:
             {pres && <Crown className="h-4 w-4 shrink-0 text-gold" title={NAMES.president} />}
             {chan && <Gavel className="h-4 w-4 shrink-0" title={NAMES.chancellor} />}
             {!p.alive && <Skull className="h-4 w-4 shrink-0" title="Executed" />}
+            {game.phase === "vote" && game.votedIds.includes(p.id) && (
+              <span className="shrink-0 rounded bg-gold/20 px-1 text-[9px] font-bold uppercase text-gold" title="Has voted">
+                voted
+              </span>
+            )}
             {p.investigated && <Eye className="h-3.5 w-3.5 shrink-0 text-muted" title="Investigated" />}
             {limited && p.alive && !pres && !chan && (
               <span className="shrink-0 rounded bg-surface-2 px-1 text-[9px] uppercase text-muted" title="Term-limited (last elected government)">

@@ -210,7 +210,7 @@ export function GameScreen({ snap, reconnecting }: { snap: RoomSnapshot; reconne
   const send = async (a: ClientAction) => {
     const r = await op(snap.code, { op: "action", action: a });
     if (!r.ok) {
-      setError(r.error);
+      setError(r.error === "offline" ? "You're offline. Reconnecting…" : r.error);
       setTimeout(() => setError(null), 3500);
       return r.error;
     }
