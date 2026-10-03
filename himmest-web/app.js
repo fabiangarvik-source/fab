@@ -82,8 +82,11 @@ function periodName(per){
   return per.start.slice(0,4);
 }
 /* Week bets close at midnight on Wednesday; month and year bets close when the last day starts. */
-function betOpenOn(per, day){ return per.type === "week" ? dayIndex(day) - dayIndex(per.start) <= 2 : day < per.end; }
-function betCloseSecs(per, td){ const last = per.type === "week" ? addDays(per.start, 2) : addDays(per.end, -1); return (dayIndex(last) - dayIndex(td)) * 86400 + secsToMidnight(); }
+/* Launch week (the app's first week): week bets stay open through Saturday, and there is an interim King. */
+const LAUNCH_WEEK = "w2026-09-28";
+const lastBetDay = per => per.type === "week" ? addDays(per.start, per.key === LAUNCH_WEEK ? 5 : 2) : addDays(per.end, -1);
+function betOpenOn(per, day){ return day <= lastBetDay(per); }
+function betCloseSecs(per, td){ return (dayIndex(lastBetDay(per)) - dayIndex(td)) * 86400 + secsToMidnight(); }
 
 /* ============ dom ============ */
 function h(tag, attrs, ...kids){
@@ -335,7 +338,12 @@ function trophies(uid){
 /* The King of a week is whoever won the week before. */
 function reignFor(per){
   const prev = periodOf("week", addDays(per.start, -1));
-  const kings = prev.end < D.td ? winnersOfPeriod(prev) : [];
+  let kings = prev.end < D.td ? winnersOfPeriod(prev) : [];
+  if (per.key === LAUNCH_WEEK && !kings.length) {
+    /* Interim King: the latest finished day's Himmest this week, else whoever leads the week right now. */
+    for (let d = addDays(D.td, -1); d >= per.start && !kings.length; d = addDays(d, -1)) kings = [...(D.dw[d] || [])];
+    if (!kings.length) kings = winnersOfPeriod({ start:per.start, end:D.td });
+  }
   let law = null;
   for (const k of kings) { const w = S.reign[k]?.weeks?.[per.key]; if (w && (w.rule || w.punishment || w.photo)) { law = { ...w, by:k }; break; } }
   return { kings, law, prev };
@@ -666,7 +674,7 @@ function kingStrip(L){
   return h("button",{class:"kingstrip",onclick:()=>{ S.kingOpen = true; render(); }},
     kings.length ? avatar(kings[0],"sm") : h("span",{"aria-hidden":"true",style:"font-size:1.3rem"},"👑"),
     h("span",{class:"ks-text"},
-      h("b",null, kings.length ? `King ${kings.map(firstNm).join(" & ")}` : "No King yet"),
+      h("b",null, kings.length ? `${per.key === LAUNCH_WEEK ? "Interim King" : "King"} ${kings.map(firstNm).join(" & ")}` : "No King yet"),
       h("span",null, law?.punishment ? `⚖️ Loser this week: ${law.punishment}` : kings.length ? "No decree yet. Weak." : "Win the week to take the crown"),
       lastLaw?.punishment && broke ? h("span",null, `🧾 ${firstNm(broke.uid)} owes: ${lastLaw.punishment}`) : null),
     h("span",{class:"ks-more","aria-hidden":"true"},"›"));
@@ -787,7 +795,7 @@ function viewToday(L){
       h("li",null,"Most votes at midnight wins the day."),
       h("li",null,"Him Points: 1 per vote you get, +3 for winning a day, +2 for the day's best quote, +2 for the day's best moment."),
       h("li",null,"Most Him Points by Sunday = King of the Week. The King makes a rule and picks the punishment."),
-      h("li",null,"Bet on the King before Wednesday midnight. Whoever loses the most Himbucks gets the punishment."),
+      h("li",null,"Bet on the King before Wednesday midnight (launch week: Saturday). Whoever loses the most Himbucks gets the punishment."),
       h("li",null,"Got votes? You can appeal once. Win the trial and your votes don't count.")));
   return h("div",{class:"stack"},
     pushCard(), kingStrip(L), reasonCard(), hero,
@@ -944,7 +952,7 @@ function futureCard(type, L, avail){
     h("div",{class:"label"}, periodName(per)),
     h("h2",{style:"margin:4px 0 8px"}, PERIODS[type]),
     h("div",{class:"btnrow",style:"gap:6px;margin-bottom:10px"},
-      h("span",{class:"pill "+(closed?"closed":"live")}, closed ? (type==="week" ? "Closed Wednesday" : "Betting closed") : `Closes in ${fmtDur(betCloseSecs(per, td))}`),
+      h("span",{class:"pill "+(closed?"closed":"live")}, closed ? (type==="week" ? "Closed for this week" : "Betting closed") : `Closes in ${fmtDur(betCloseSecs(per, td))}`),
       h("span",{class:"pill"}, `Pool ${pool.toLocaleString()} HB`)),
     st.some(s=>s.pts>0) ? st.map((s,i)=>h("div",{class:"row"},
       h("div",{class:"rank"+(i===0?" gold":"")}, i+1), avatar(s.uid,"sm"),

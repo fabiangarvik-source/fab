@@ -80,8 +80,11 @@ function periodName(per){
   return per.start.slice(0,4);
 }
 /* Week bets close at midnight on Wednesday; month and year bets close when the last day starts. */
-function betOpenOn(per, day){ return per.type === "week" ? dayIndex(day) - dayIndex(per.start) <= 2 : day < per.end; }
-function betCloseSecs(per, td){ const last = per.type === "week" ? addDays(per.start, 2) : addDays(per.end, -1); return (dayIndex(last) - dayIndex(td)) * 86400 + secsToMidnight(); }
+/* Launch week (the app's first week): week bets stay open through Saturday, and there is an interim King. */
+const LAUNCH_WEEK = "w2026-09-28";
+const lastBetDay = per => per.type === "week" ? addDays(per.start, per.key === LAUNCH_WEEK ? 5 : 2) : addDays(per.end, -1);
+function betOpenOn(per, day){ return day <= lastBetDay(per); }
+function betCloseSecs(per, td){ return (dayIndex(lastBetDay(per)) - dayIndex(td)) * 86400 + secsToMidnight(); }
 
 /* ============ dom ============ */
 function h(tag, attrs, ...kids){
@@ -333,7 +336,12 @@ function trophies(uid){
 /* The King of a week is whoever won the week before. */
 function reignFor(per){
   const prev = periodOf("week", addDays(per.start, -1));
-  const kings = prev.end < D.td ? winnersOfPeriod(prev) : [];
+  let kings = prev.end < D.td ? winnersOfPeriod(prev) : [];
+  if (per.key === LAUNCH_WEEK && !kings.length) {
+    /* Interim King: the latest finished day's Himmest this week, else whoever leads the week right now. */
+    for (let d = addDays(D.td, -1); d >= per.start && !kings.length; d = addDays(d, -1)) kings = [...(D.dw[d] || [])];
+    if (!kings.length) kings = winnersOfPeriod({ start:per.start, end:D.td });
+  }
   let law = null;
   for (const k of kings) { const w = S.reign[k]?.weeks?.[per.key]; if (w && (w.rule || w.punishment || w.photo)) { law = { ...w, by:k }; break; } }
   return { kings, law, prev };

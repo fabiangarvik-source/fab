@@ -29,7 +29,7 @@ function futureCard(type, L, avail){
     h("div",{class:"label"}, periodName(per)),
     h("h2",{style:"margin:4px 0 8px"}, PERIODS[type]),
     h("div",{class:"btnrow",style:"gap:6px;margin-bottom:10px"},
-      h("span",{class:"pill "+(closed?"closed":"live")}, closed ? (type==="week" ? "Closed Wednesday" : "Betting closed") : `Closes in ${fmtDur(betCloseSecs(per, td))}`),
+      h("span",{class:"pill "+(closed?"closed":"live")}, closed ? (type==="week" ? "Closed for this week" : "Betting closed") : `Closes in ${fmtDur(betCloseSecs(per, td))}`),
       h("span",{class:"pill"}, `Pool ${pool.toLocaleString()} HB`)),
     st.some(s=>s.pts>0) ? st.map((s,i)=>h("div",{class:"row"},
       h("div",{class:"rank"+(i===0?" gold":"")}, i+1), avatar(s.uid,"sm"),

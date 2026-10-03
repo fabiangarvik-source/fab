@@ -68,7 +68,7 @@ function kingStrip(L){
   return h("button",{class:"kingstrip",onclick:()=>{ S.kingOpen = true; render(); }},
     kings.length ? avatar(kings[0],"sm") : h("span",{"aria-hidden":"true",style:"font-size:1.3rem"},"👑"),
     h("span",{class:"ks-text"},
-      h("b",null, kings.length ? `King ${kings.map(firstNm).join(" & ")}` : "No King yet"),
+      h("b",null, kings.length ? `${per.key === LAUNCH_WEEK ? "Interim King" : "King"} ${kings.map(firstNm).join(" & ")}` : "No King yet"),
       h("span",null, law?.punishment ? `⚖️ Loser this week: ${law.punishment}` : kings.length ? "No decree yet. Weak." : "Win the week to take the crown"),
       lastLaw?.punishment && broke ? h("span",null, `🧾 ${firstNm(broke.uid)} owes: ${lastLaw.punishment}`) : null),
     h("span",{class:"ks-more","aria-hidden":"true"},"›"));
@@ -189,7 +189,7 @@ function viewToday(L){
       h("li",null,"Most votes at midnight wins the day."),
       h("li",null,"Him Points: 1 per vote you get, +3 for winning a day, +2 for the day's best quote, +2 for the day's best moment."),
       h("li",null,"Most Him Points by Sunday = King of the Week. The King makes a rule and picks the punishment."),
-      h("li",null,"Bet on the King before Wednesday midnight. Whoever loses the most Himbucks gets the punishment."),
+      h("li",null,"Bet on the King before Wednesday midnight (launch week: Saturday). Whoever loses the most Himbucks gets the punishment."),
       h("li",null,"Got votes? You can appeal once. Win the trial and your votes don't count.")));
   return h("div",{class:"stack"},
     pushCard(), kingStrip(L), reasonCard(), hero,
