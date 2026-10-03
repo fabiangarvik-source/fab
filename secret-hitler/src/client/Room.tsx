@@ -101,10 +101,10 @@ function Lobby({ snap, offline }: { snap: RoomSnapshot; offline: boolean }) {
               {canStart ? `Start game · ${n} players` : `Waiting for ${Math.max(0, MIN_PLAYERS - n)} more`}
             </Button>
             {snap.botsAllowed && (
-              <div className="rounded-md border border-dashed border-line p-3">
-                <div className="font-type text-xs tracking-widest text-muted">DEV MODE · BOT PLAYERS</div>
+              <div className="rounded-md border border-dashed border-line p-3" data-testid="bot-panel">
+                <div className="font-type text-xs tracking-widest text-muted">FILL EMPTY SEATS WITH BOTS</div>
                 <div className="mt-2 grid grid-cols-4 gap-2">
-                  {[1, 5, 10, 12].map((target, i) => (
+                  {[1, 5, 7, 10].map((target, i) => (
                     <Button
                       key={target}
                       variant="ghost"
@@ -117,6 +117,9 @@ function Lobby({ snap, offline }: { snap: RoomSnapshot; offline: boolean }) {
                     </Button>
                   ))}
                 </div>
+                <p className="mt-2 text-xs text-muted">
+                  Bots only know their own role. They vote, lie and say which cards they got after each government.
+                </p>
               </div>
             )}
           </>

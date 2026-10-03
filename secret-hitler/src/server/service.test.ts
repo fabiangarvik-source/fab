@@ -136,4 +136,33 @@ describe("rooms over the API", () => {
     }
     expect((await store.get(host.code))!.game!.phase).toBe("over");
   });
+
+  it("two humans plus bots finish a game, bots post claims, nothing secret leaks", async () => {
+    const { code, tokens } = await room(2);
+    ok(await apiOp(code, tokens[0], { op: "addBots", count: 5 }));
+    let s = await snapOf(code, tokens[0]);
+    expect(s.members.filter((m) => m.isBot)).toHaveLength(5);
+    ok(await apiOp(code, tokens[0], { op: "start" }));
+    const { legalActions } = await import("../engine/engine");
+    for (let i = 0; i < 3000; i++) {
+      const raw = (await store.get(code))!;
+      if (raw.game!.phase === "over") break;
+      raw.botDueAt = 0;
+      await store.replace(raw, raw.version);
+      for (const t of tokens) {
+        s = await snapOf(code, t);
+        expect(JSON.stringify(s.view!.game.log)).not.toMatch(/"secret"/);
+        const acts = legalActions((await store.get(code))!.game!, s.meId!);
+        if (acts.length) {
+          const { player: _p, ...a } = acts[Math.floor(Math.random() * acts.length)];
+          void _p;
+          await apiOp(code, t, { op: "action", action: a as never });
+        }
+      }
+    }
+    const game = (await store.get(code))!.game!;
+    expect(game.phase).toBe("over");
+    const enacts = game.log.filter((e) => e.t === "enact").length;
+    if (enacts) expect(game.log.some((e) => e.t === "claim")).toBe(true);
+  });
 });

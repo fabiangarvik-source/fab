@@ -41,6 +41,9 @@ export type LogEntry = { round: number } & (
   | { t: "reshuffle"; drawSize: number }
   | { t: "power"; power: Power; president: string; target?: string }
   | { t: "win"; winner: Winner; reason: WinReason }
+  // What a player says happened (solo mode). Public, and may be a lie.
+  | { t: "claim"; player: string; kind: "draw" | "receive"; cards: Policy[] }
+  | { t: "claim"; player: string; kind: "investigate"; target: string; party: Party }
   // Secret entries: only revealed after the game ends (if the room allows it).
   | { t: "draw"; secret: true; president: string; cards: Policy[] }
   | { t: "pres_discard"; secret: true; president: string; card: Policy; passed: Policy[] }

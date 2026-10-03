@@ -28,8 +28,10 @@ src/engine/       pure rules engine (no I/O), seeded RNG, redaction, tests
   view.ts         what each player (or the table screen) is allowed to see
 src/server/       room logic (lobby, host, bots, presence) + Postgres/memory store
 app/api/rooms/    route handlers: create, join/resume, poll, act
-src/client/       React UI (game screen, boards, rules, lobby, table)
+src/solo/         solo mode: bot brain (bot.ts) and the in-browser game loop (solo.ts)
+src/client/       React UI (game screen, boards, rules, lobby, table, solo)
 scripts/e2e.ts    plays full games in N separate browser tabs
+scripts/e2e-solo.ts  plays a solo game through the UI, incl. an offline reload
 ```
 
 ## Run locally
@@ -42,17 +44,28 @@ npm run dev            # http://localhost:3000
 
 No database is needed locally: without `DATABASE_URL` rooms live in memory. To play from phones on your Wi-Fi, open `http://<your-computer's-LAN-IP>:3000` (the QR code uses whatever address the host opened).
 
-**Dev mode bots**: in the lobby the host sees "+1 / →5 / →10 / →12" buttons that add bot players who take random legal actions, so you can test any player count alone. Bots are off in production unless `ENABLE_BOTS=1`.
+**Bots in rooms**: in the lobby the host can fill empty seats with bots ("+1 / →5 / →7 / →10"), so two people can play a 7-player game. Bots run on the server with the same brain as solo mode, see only their own seat's information, move when someone polls, all vote at once, and post claims after each government. Set `DISABLE_BOTS=1` to turn them off.
+
+## Solo mode
+
+`/solo` ("Play solo vs bots" on the home screen) is one human against 4–11 bots. It never touches the server: the engine runs in the browser, the save lives in `localStorage` (a reload resumes the game) and the service worker caches the page, so it works offline once it has been opened online.
+
+Bots only see what a person in their seat would see (the redacted view plus their own hands). Liberals score suspicion from enacted policies, votes and claims; Fascists know their team, push Fascist policies and lie in their claims; Hitler plays Liberal to look clean. Since there's no table talk, every President and Chancellor posts a claim of the cards they saw, and the human can claim (or lie) too. In all-bot play Liberals win roughly 50–65% of games depending on table size.
+
+Note: the full game state sits in the player's own browser, so a determined player could read the other roles in dev tools. That only spoils their own game.
 
 ## Tests
 
 ```bash
-npm test               # 77 unit tests: every rule in the brief incl. all edge cases,
+npm test               # 84 unit tests: every rule in the brief incl. all edge cases,
                        # API redaction, concurrency, and 1,600 random full games (5–12 players)
 npm run typecheck
 npm run dev & BASE=http://localhost:3000 PLAYERS=7 npm run e2e
                        # 7 real browser tabs play a full game through the UI,
                        # including a mid-game reload, then "Play again"
+                       # (add BOTS=5 with PLAYERS=2 for a mixed humans + bots room)
+npm run start -- -H 127.0.0.1 & BASE=http://127.0.0.1:3000 PLAYERS=7 npm run e2e:solo
+                       # one tab plays solo vs bots, goes offline mid-game and reloads
 ```
 
 ## Environment variables
@@ -60,7 +73,7 @@ npm run dev & BASE=http://localhost:3000 PLAYERS=7 npm run e2e
 | Variable | Where | Purpose |
 | --- | --- | --- |
 | `DATABASE_URL` (or `POSTGRES_URL`) | Vercel (required) | Postgres connection string. Neon via the Vercel Marketplace sets it for you. The `sh_rooms` table is created automatically. |
-| `ENABLE_BOTS` | optional | `1` shows the bot buttons outside development. |
+| `DISABLE_BOTS` | optional | `1` hides the "fill with bots" buttons. |
 
 ## Deploy to Vercel
 

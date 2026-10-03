@@ -68,6 +68,11 @@ export default function Home() {
             Join a room
           </Button>
         </Link>
+        <Link href="/solo" className="w-full" data-testid="play-solo">
+          <Button size="lg" variant="ghost" className="w-full" tabIndex={-1}>
+            Play solo vs bots
+          </Button>
+        </Link>
         <Link href="/rules" className="w-full">
           <Button variant="ghost" className="w-full" tabIndex={-1}>
             How to play

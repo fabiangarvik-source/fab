@@ -50,8 +50,18 @@ export function onSnapshot(fn: Listener) {
   listeners.add(fn);
   return () => void listeners.delete(fn);
 }
+
+/** Rooms that live in this browser (solo mode) answer ops locally instead of over the network. */
+type LocalRoom = (req: RoomOp) => ApiResult<{ snapshot: RoomSnapshot | null }>;
+const localRooms = new Map<string, LocalRoom>();
+export function setLocalRoom(code: string, handler: LocalRoom | null) {
+  if (handler) localRooms.set(code, handler);
+  else localRooms.delete(code);
+}
+
 export async function op(code: string, req: RoomOp) {
-  const res = await roomOp(code, req);
+  const local = localRooms.get(code);
+  const res = local ? local(req) : await roomOp(code, req);
   if (res.ok) listeners.forEach((l) => l(res.snapshot));
   return res;
 }

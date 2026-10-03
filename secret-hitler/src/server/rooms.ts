@@ -4,10 +4,11 @@
 // only ever receive snapshot(), which goes through the engine's redaction.
 
 import { MAX_PLAYERS, MIN_PLAYERS } from "../engine/config";
-import { applyAction, createGame, legalActions } from "../engine/engine";
+import { createGame, legalActions } from "../engine/engine";
 import type { Action, GameState } from "../engine/types";
 import { viewFor } from "../engine/view";
 import { CODE_ALPHABET, type RoomOp, type RoomSettings, type RoomSnapshot } from "../protocol";
+import { applyWithClaims, botMove } from "../solo/runner";
 
 export interface StoredMember {
   id: string;
@@ -127,7 +128,7 @@ export function applyOp(room: StoredRoom, memberId: string, req: RoomOp, rand: R
       return { ok: true, room };
 
     case "addBots": {
-      if (!botsAllowed) return fail("Bots are only available in development");
+      if (!botsAllowed) return fail("Bots are turned off on this server");
       if (!isHost) return fail("Only the host can add bots");
       if (room.game) return fail("Bots can only join in the lobby");
       const n = Math.max(0, Math.min(Number(req.count) | 0, MAX_PLAYERS - room.members.length));
@@ -164,7 +165,7 @@ export function applyOp(room: StoredRoom, memberId: string, req: RoomOp, rand: R
       if (!room.game) return fail("No game is running");
       const a = req.action as { type?: unknown } | undefined;
       if (!a || typeof a !== "object" || typeof a.type !== "string") return fail("Bad action");
-      const res = applyAction(room.game, { ...(req.action as object), player: memberId } as Action);
+      const res = applyWithClaims(room.game, { ...(req.action as object), player: memberId } as Action, isBotIn(room), unit(rand));
       if (!res.ok) return res;
       room.game = res.state;
       room.botDueAt = now + BOT_DELAY(rand);
@@ -174,16 +175,34 @@ export function applyOp(room: StoredRoom, memberId: string, req: RoomOp, rand: R
   return fail("Unknown request");
 }
 
-/** Lets one due bot take one random legal action. Returns true if the room changed. */
+const isBotIn = (room: StoredRoom) => (id: string) => room.members.find((m) => m.id === id)?.isBot ?? false;
+const unit = (rand: Rand) => () => rand.int(1_000_000) / 1_000_000;
+
+/**
+ * Lets due bots move: every pending bot votes at once (ballots are secret and
+ * simultaneous anyway), otherwise one bot takes its turn. Returns true if the room changed.
+ */
 export function tickBots(room: StoredRoom, rand: Rand, now: number): boolean {
-  const bots = pendingBots(room);
+  let bots = pendingBots(room);
   if (!bots.length || !room.game) return false;
   if (room.botDueAt !== null && room.botDueAt > now) return false;
-  const bot = bots[rand.int(bots.length)];
-  const acts = legalActions(room.game, bot.id);
-  const res = applyAction(room.game, acts[rand.int(acts.length)]);
-  if (!res.ok) return false;
-  room.game = res.state;
+  if (room.game.phase !== "vote") bots = [bots[rand.int(bots.length)]];
+  let changed = false;
+  for (const bot of bots) {
+    const game: GameState = room.game;
+    const action = botMove(game, bot.id, unit(rand));
+    const res = action && applyWithClaims(game, { ...action, player: bot.id } as Action, isBotIn(room), unit(rand));
+    if (!res || !res.ok) {
+      // Never let a bot stall the room: fall back to any legal move.
+      const acts = legalActions(game, bot.id);
+      if (!acts.length) continue;
+      const fb = applyWithClaims(game, acts[rand.int(acts.length)], isBotIn(room), unit(rand));
+      if (!fb.ok) continue;
+      room.game = fb.state;
+    } else room.game = res.state;
+    changed = true;
+  }
+  if (!changed) return false;
   room.botDueAt = now + BOT_DELAY(rand);
   room.lastActivity = now;
   return true;

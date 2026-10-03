@@ -40,6 +40,9 @@ export function describe(e: LogEntry, name: (id: string) => string): { text: str
       return { text: `${name(e.president)} executed ${name(e.target!)}.`, tone: "fas" };
     case "win":
       return { text: `${NAMES.partiesPlural[e.winner]} win.` };
+    case "claim":
+      if (e.kind === "investigate") return { text: `${name(e.player)} says ${name(e.target)} is ${NAMES.parties[e.party]}.` };
+      return { text: `${name(e.player)} says: “I ${e.kind === "draw" ? "drew" : "got"} ${cards(e.cards)}.”` };
     case "draw":
       return { text: `${name(e.president)} drew ${cards(e.cards)}.`, tone: "muted" };
     case "pres_discard":
@@ -49,7 +52,7 @@ export function describe(e: LogEntry, name: (id: string) => string): { text: str
     case "veto_discard":
       return { text: `Vetoed policies: ${cards(e.cards)}.`, tone: "muted" };
     case "investigation_result":
-      return { text: `${name(e.president)} saw ${name(e.target)} is ${NAMES.parties[e.party]}.`, tone: "muted" };
+      return { text: `${name(e.president)} saw ${name(e.target)} is ${NAMES.parties[e.party]}.` };
     case "peek_result":
       return { text: `Peek showed ${cards(e.cards)}.`, tone: "muted" };
   }
