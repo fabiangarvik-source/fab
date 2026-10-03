@@ -17,7 +17,6 @@ export function init() {
     await sql`CREATE TABLE IF NOT EXISTS users (id text PRIMARY KEY, email text UNIQUE NOT NULL, pass text NOT NULL, created_at timestamptz NOT NULL DEFAULT now())`;
     await sql`CREATE TABLE IF NOT EXISTS docs (uid text NOT NULL, col text NOT NULL, data jsonb NOT NULL, updated_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (uid, col))`;
     await sql`CREATE TABLE IF NOT EXISTS imgs (k text PRIMARY KEY, uid text NOT NULL, kind text NOT NULL, data text NOT NULL, created_at timestamptz NOT NULL DEFAULT now())`;
-    await sql`CREATE TABLE IF NOT EXISTS roasts (k text PRIMARY KEY, text text NOT NULL, ai boolean NOT NULL DEFAULT false, uid text, created_at timestamptz NOT NULL DEFAULT now())`;
     await sql`CREATE TABLE IF NOT EXISTS push_subs (endpoint text PRIMARY KEY, uid text NOT NULL, sub jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now())`;
     await sql`CREATE TABLE IF NOT EXISTS sent (k text PRIMARY KEY, created_at timestamptz NOT NULL DEFAULT now())`;
   })().catch((e) => { ready = null; throw e; });

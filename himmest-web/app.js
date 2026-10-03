@@ -1,4 +1,115 @@
 (() => {
+/* ---- 0-roasts.js ---- */
+/* Hand-written roast lines. Each thing gets one line picked by its key, so it stays the same on every screen. */
+const ROASTS = {
+  any: [
+    "{name} has the survival instincts of a moth at a bonfire.",
+    "Somewhere a golden retriever just felt smarter than {name}.",
+    "{name} had one brain cell today and it called in sick.",
+    "{name}'s brain is running on airplane mode.",
+    "If confidence was IQ, {name} would be a genius. Tragic.",
+    "Scientists are studying {name}. Not in a good way.",
+    "{name} is the reason shampoo has instructions.",
+    "Even autocorrect couldn't fix {name}'s decisions today.",
+    "{name} out here playing life on easy mode and still losing.",
+    "{name} is not the main character. {name} is the tutorial.",
+    "{name}'s last thought left a voicemail. Nobody called back.",
+    "{name} has the energy of a dog that just saw a door open.",
+    "NASA called. They want to study the empty space in {name}'s head.",
+    "{name} would lose a staring contest to a parked car.",
+    "{name}'s brain has two tabs open and both are loading.",
+    "{name} is proof that evolution takes breaks.",
+    "If {name} was a spice, it would be flour.",
+    "{name} brings nothing to the table and still asks for seconds.",
+    "Somebody unplug {name} and plug him back in.",
+    "{name} has the strategic mind of a Roomba.",
+    "{name}'s search history is just \"how\".",
+    "{name} could get lost in a hallway with one door.",
+    "{name} is built different. Specifically, worse.",
+    "Loading {name}'s common sense… 2%… error.",
+    "{name} is running on vibes and a single granola bar.",
+    "{name} peaked in kindergarten and it's been downhill since nap time.",
+    "{name}'s guardian angel just requested a transfer.",
+    "{name} reads the terms and conditions and still doesn't get it.",
+    "Respectfully, {name} is a walking group chat screenshot.",
+    "{name} thinks critical thinking is a type of workout.",
+  ],
+  nom: [
+    "{name} is not on trial. {name} is the evidence.",
+    "Honestly? {name} looked at this charge and said \"fair.\"",
+    "The prosecution rests. So does {name}'s last thought.",
+    "{name} didn't just do it. {name} committed to the bit with zero awareness.",
+    "Charges filed. {name}'s lawyer already blocked his number.",
+    "Nobody had to make this up. {name} just did it.",
+    "This charge sheet is longer than {name}'s attention span.",
+    "{name} pleads not guilty. The evidence pleads otherwise.",
+    "Judge took one look at {name} and closed the case.",
+    "{name} woke up and chose to be a headline.",
+  ],
+  moment: [
+    "This photo should be in a museum. The Museum of Bad Decisions.",
+    "Frame this. Show it at {name}'s wedding.",
+    "Zoom in. You can see the thought leaving {name}'s head.",
+    "{name} woke up and chose chaos. Chaos said \"no thanks.\"",
+    "Caught in 4K. No lawyer can save {name} now.",
+    "{name}'s mom is getting this one printed.",
+    "This is {name}'s villain origin story, but dumber.",
+    "Evidence exhibit A. And B. And C. It's all {name}.",
+    "Somebody check on {name}. Actually, don't. This is funnier.",
+    "This picture has more going on than {name}'s brain.",
+    "National Geographic would pay for this {name} footage.",
+    "{name} looks like he's buffering.",
+  ],
+  quote: [
+    "{name} said this out loud. On purpose.",
+    "Put it on a t-shirt. Make {name} pay for the first one.",
+    "Philosophers wept. Not because it was deep.",
+    "{name} speaks fluent nonsense and we're all bilingual now.",
+    "That's not a quote, that's a cry for help from {name}'s last brain cell.",
+    "Socrates who? We have {name}.",
+    "{name} thought about this for zero seconds and it shows.",
+    "The words are English. The logic is not.",
+    "Every teacher {name} ever had just felt a chill.",
+    "{name} should be legally required to think before speaking.",
+    "Quote of the century. Unfortunately.",
+  ],
+  appeal: [
+    "{name} is appealing? Bold move for someone with no defense.",
+    "Objection: {name}'s whole personality.",
+    "{name}'s lawyer just quit. Not even mad.",
+    "This defense has the structural integrity of wet cardboard.",
+    "{name} pleading innocent is the himmest thing {name} did today.",
+    "The jury is laughing. That's not a good sign, {name}.",
+    "{name} brought a spoon to a sword fight and called it a defense.",
+    "Even {name} doesn't believe this one.",
+  ],
+  crown: [
+    "All hail {name}, ruler of nothing, champion of vibes.",
+    "{name} earned this crown the only way he knows how: by accident.",
+    "The people have spoken, and they said {name}. Loudly.",
+    "{name} is the Himmest. Nobody is surprised.",
+    "Crown fits perfectly. It's the only thing in {name}'s head.",
+    "History will remember this day. {name} will forget it by lunch.",
+    "Long live King {name}. Short live his brain cells.",
+    "{name} finally won something. It's this.",
+  ],
+  week: [
+    "Another week, another collective IQ drop. Proud of you, boys.",
+    "This week's highlights would get you all banned from a library.",
+    "Seven days. Zero thoughts. Incredible consistency.",
+    "If this group was a company, it would be bankrupt and somehow on fire.",
+    "Scientists say brains peak at 25. You all peaked early.",
+    "Somehow this week was dumber than last week. Growth.",
+    "Not one of you thought before acting this week. Legendary.",
+  ],
+};
+function roastLine(kind, name, key){
+  let x = 2166136261;
+  for (const c of String(key)) { x ^= c.charCodeAt(0); x = Math.imul(x, 16777619) >>> 0; }
+  const own = ROASTS[kind] || [], pool = (x & 1) && own.length ? own : own.concat(ROASTS.any);
+  return pool[(x >>> 1) % pool.length].replaceAll("{name}", name || "This guy");
+}
+
 /* ---- 1-core.js ---- */
 "use strict";
 /* ============ constants ============ */
@@ -153,7 +264,7 @@ const cap1 = s => s ? s[0].toUpperCase()+s.slice(1) : "";
 const pick = (arr, seed) => { let x = 0; for (const c of String(seed)) x = (x*31 + c.charCodeAt(0)) >>> 0; return arr[x % arr.length]; };
 
 /* ============ state + network ============ */
-const S = { uid:null, email:"", tab:"today", rankTab:"week", memTab:"roll", loaded:new Set(), roasts:{}, push:"unknown",
+const S = { uid:null, email:"", tab:"today", rankTab:"week", memTab:"roll", loaded:new Set(), push:"unknown",
   openComments:new Set(), cdraft:{}, reasonFor:null, kingOpen:false, showAppeal:false };
 for (const c of COLS) S[c] = {};
 const draft = { moment:{ img:null, about:"", caption:"" }, quote:{ about:"", text:"" }, nom:{ about:"", reason:"" },
@@ -392,27 +503,10 @@ function ledger(){
 
 /* ---- 2-parts.js ---- */
 /* ============ roasts ============ */
-const roastAsked = new Set(), roastQueue = [];
-let roastBusy = 0;
-function pumpRoasts(){
-  while (roastBusy < 2 && roastQueue.length) {
-    const job = roastQueue.shift(); roastBusy++;
-    api("/api/roast",{ method:"POST", body:JSON.stringify(job) })
-      .then(r => { if (r?.text) { S.roasts[job.k] = r.text; scheduleRender(); } })
-      .catch(() => {})
-      .finally(() => { roastBusy--; pumpRoasts(); });
-  }
+/* One roast line per thing, picked from the hand-written bank (0-roasts.js). */
+function roast(k, kind, ctx){
+  return h("div",{class:"roast"}, h("b",null,"🎙️ ROAST"), h("span",null, roastLine(kind, ctx && ctx.name, k)));
 }
-/* A roast line for one thing. New things get a roast written once; old things only show what exists. */
-function roast(k, kind, ctx, opts = {}){
-  k = String(k).replace(/[^A-Za-z0-9:_.\-]/g, "").slice(0,160);
-  const text = S.roasts[k];
-  const fresh = opts.day ? opts.day >= addDays(D.td, -2) : true;
-  if (!text && fresh && !roastAsked.has(k)) { roastAsked.add(k); roastQueue.push({ k, kind, ctx, img:opts.img }); pumpRoasts(); }
-  if (!text && !fresh) return null;
-  return h("div",{class:"roast"+(text?"":" wait")}, h("b",null,"🎙️ CLAUDE"), h("span",null, text || "Cooking up a roast…"));
-}
-
 /* ============ comments ============ */
 function commentsBox(target, label = "Talk trash"){
   const list = D.comments[target] || [], open = S.openComments.has(target);
@@ -499,7 +593,7 @@ function ceremony(c){
       c.week ? h("p",{style:"max-width:28rem"}, isMe ? "You're the King. You make the rule and pick the punishment for this week." : `${firstNm(u)} now makes the rule and picks this week's punishment. God help us.`) : null,
       roast(`crown:${c.key}`, "crown", { name:firstNm(u), text: charge ? charge.reason : "won the whole week" }),
       h("div",{class:"btnrow"},
-        h("button",{class:"btn hi",onclick:()=>shareStory({ title, when, uid:u, names, line: charge ? `"${charge.reason}"` : (S.roasts[`crown:${c.key}`]||"") })},"📲 Share to Story"),
+        h("button",{class:"btn hi",onclick:()=>shareStory({ title, when, uid:u, names, line: charge ? `"${charge.reason}"` : roastLine("crown", firstNm(u), `crown:${c.key}`) })},"📲 Share to Story"),
         h("button",{class:"btn",onclick:()=>{ close(); if (c.week && isMe) go("today"); }}, c.week && isMe ? "Set the rules" : "Continue"))));
     confetti();
   };
@@ -1211,7 +1305,7 @@ async function load(force){
   try {
     const j = await api(`/api/state?v=${force ? "" : encodeURIComponent(V)}`);
     loadErr = ""; const was = authed; authed = true; S.uid = j.me.id; S.email = j.me.email;
-    if (!j.same) { V = j.v; for (const c of COLS) S[c] = j.cols[c] || {}; S.roasts = { ...S.roasts, ...(j.roasts||{}) }; COLS.forEach(c=>S.loaded.add(c)); scheduleRender(); }
+    if (!j.same) { V = j.v; for (const c of COLS) S[c] = j.cols[c] || {}; COLS.forEach(c=>S.loaded.add(c)); scheduleRender(); }
     else if (was !== true) scheduleRender();
   } catch(e) {
     if (e.status === 401) { if (authed !== false) { authed = false; render(); } }

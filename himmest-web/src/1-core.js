@@ -151,7 +151,7 @@ const cap1 = s => s ? s[0].toUpperCase()+s.slice(1) : "";
 const pick = (arr, seed) => { let x = 0; for (const c of String(seed)) x = (x*31 + c.charCodeAt(0)) >>> 0; return arr[x % arr.length]; };
 
 /* ============ state + network ============ */
-const S = { uid:null, email:"", tab:"today", rankTab:"week", memTab:"roll", loaded:new Set(), roasts:{}, push:"unknown",
+const S = { uid:null, email:"", tab:"today", rankTab:"week", memTab:"roll", loaded:new Set(), push:"unknown",
   openComments:new Set(), cdraft:{}, reasonFor:null, kingOpen:false, showAppeal:false };
 for (const c of COLS) S[c] = {};
 const draft = { moment:{ img:null, about:"", caption:"" }, quote:{ about:"", text:"" }, nom:{ about:"", reason:"" },

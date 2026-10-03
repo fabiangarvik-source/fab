@@ -288,7 +288,7 @@ async function load(force){
   try {
     const j = await api(`/api/state?v=${force ? "" : encodeURIComponent(V)}`);
     loadErr = ""; const was = authed; authed = true; S.uid = j.me.id; S.email = j.me.email;
-    if (!j.same) { V = j.v; for (const c of COLS) S[c] = j.cols[c] || {}; S.roasts = { ...S.roasts, ...(j.roasts||{}) }; COLS.forEach(c=>S.loaded.add(c)); scheduleRender(); }
+    if (!j.same) { V = j.v; for (const c of COLS) S[c] = j.cols[c] || {}; COLS.forEach(c=>S.loaded.add(c)); scheduleRender(); }
     else if (was !== true) scheduleRender();
   } catch(e) {
     if (e.status === 401) { if (authed !== false) { authed = false; render(); } }

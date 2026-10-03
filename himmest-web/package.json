@@ -6,7 +6,6 @@
     "node": "22.x"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.131.0",
     "@neondatabase/serverless": "^1.0.2",
     "web-push": "^3.6.7"
   },

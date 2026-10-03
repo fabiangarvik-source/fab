@@ -1,25 +1,8 @@
 /* ============ roasts ============ */
-const roastAsked = new Set(), roastQueue = [];
-let roastBusy = 0;
-function pumpRoasts(){
-  while (roastBusy < 2 && roastQueue.length) {
-    const job = roastQueue.shift(); roastBusy++;
-    api("/api/roast",{ method:"POST", body:JSON.stringify(job) })
-      .then(r => { if (r?.text) { S.roasts[job.k] = r.text; scheduleRender(); } })
-      .catch(() => {})
-      .finally(() => { roastBusy--; pumpRoasts(); });
-  }
+/* One roast line per thing, picked from the hand-written bank (0-roasts.js). */
+function roast(k, kind, ctx){
+  return h("div",{class:"roast"}, h("b",null,"🎙️ ROAST"), h("span",null, roastLine(kind, ctx && ctx.name, k)));
 }
-/* A roast line for one thing. New things get a roast written once; old things only show what exists. */
-function roast(k, kind, ctx, opts = {}){
-  k = String(k).replace(/[^A-Za-z0-9:_.\-]/g, "").slice(0,160);
-  const text = S.roasts[k];
-  const fresh = opts.day ? opts.day >= addDays(D.td, -2) : true;
-  if (!text && fresh && !roastAsked.has(k)) { roastAsked.add(k); roastQueue.push({ k, kind, ctx, img:opts.img }); pumpRoasts(); }
-  if (!text && !fresh) return null;
-  return h("div",{class:"roast"+(text?"":" wait")}, h("b",null,"🎙️ CLAUDE"), h("span",null, text || "Cooking up a roast…"));
-}
-
 /* ============ comments ============ */
 function commentsBox(target, label = "Talk trash"){
   const list = D.comments[target] || [], open = S.openComments.has(target);
@@ -106,7 +89,7 @@ function ceremony(c){
       c.week ? h("p",{style:"max-width:28rem"}, isMe ? "You're the King. You make the rule and pick the punishment for this week." : `${firstNm(u)} now makes the rule and picks this week's punishment. God help us.`) : null,
       roast(`crown:${c.key}`, "crown", { name:firstNm(u), text: charge ? charge.reason : "won the whole week" }),
       h("div",{class:"btnrow"},
-        h("button",{class:"btn hi",onclick:()=>shareStory({ title, when, uid:u, names, line: charge ? `"${charge.reason}"` : (S.roasts[`crown:${c.key}`]||"") })},"📲 Share to Story"),
+        h("button",{class:"btn hi",onclick:()=>shareStory({ title, when, uid:u, names, line: charge ? `"${charge.reason}"` : roastLine("crown", firstNm(u), `crown:${c.key}`) })},"📲 Share to Story"),
         h("button",{class:"btn",onclick:()=>{ close(); if (c.week && isMe) go("today"); }}, c.week && isMe ? "Set the rules" : "Continue"))));
     confetti();
   };
