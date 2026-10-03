@@ -1,14 +1,14 @@
 "use client";
 
 import { NAMES } from "../engine/config";
-import type { Policy } from "../engine/types";
-import type { PublicGame, PublicLogEntry, SecretLogEntry } from "../engine/view";
+import type { LogEntry, Policy } from "../engine/types";
+import type { PublicGame } from "../engine/view";
 import { cx } from "./ui";
 
 const pol = (p: Policy) => NAMES.policies[p];
 const cards = (cs: Policy[]) => cs.map((c) => (c === "L" ? "L" : "F")).join(" ");
 
-export function describe(e: PublicLogEntry | SecretLogEntry, name: (id: string) => string): { text: string; tone?: "lib" | "fas" | "muted" } {
+export function describe(e: LogEntry, name: (id: string) => string): { text: string; tone?: "lib" | "fas" | "muted" } {
   switch (e.t) {
     case "start":
       return { text: `Seat order: ${e.seats.map(name).join(", ")}.` };
@@ -55,7 +55,7 @@ export function describe(e: PublicLogEntry | SecretLogEntry, name: (id: string) 
   }
 }
 
-export function LogList({ game, entries }: { game: PublicGame; entries?: (PublicLogEntry | SecretLogEntry)[] }) {
+export function LogList({ game, entries }: { game: PublicGame; entries?: LogEntry[] }) {
   const names = new Map(game.players.map((p) => [p.id, p.name]));
   const name = (id: string) => names.get(id) ?? "?";
   const list = entries ?? game.log;

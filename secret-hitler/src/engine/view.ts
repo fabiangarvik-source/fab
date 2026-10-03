@@ -47,8 +47,8 @@ export interface PublicGame {
   winReason: WinReason | null;
   /** Only filled once the game is over. */
   roles: Record<string, Role> | null;
-  /** Only filled once the game is over and the room shows history. */
-  secretHistory: SecretLogEntry[] | null;
+  /** The complete log including every secret, in order. Only once the game is over and the room shows history. */
+  fullHistory: LogEntry[] | null;
 }
 
 export interface PrivateInfo {
@@ -110,7 +110,7 @@ export function publicView(s: GameState, showHistory: boolean): PublicGame {
     winner: s.winner,
     winReason: s.winReason,
     roles: over ? Object.fromEntries(s.players.map((p) => [p.id, p.role])) : null,
-    secretHistory: over && showHistory ? s.log.filter(isSecret) : null,
+    fullHistory: over && showHistory ? s.log : null,
   };
 }
 

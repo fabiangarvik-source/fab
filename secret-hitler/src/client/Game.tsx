@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NAMES } from "../engine/config";
 import type { PrivateInfo, PublicGame } from "../engine/view";
 import type { ClientAction, RoomSnapshot } from "../protocol";
@@ -108,15 +108,6 @@ export function GameOver({ snap, onHide }: { snap: RoomSnapshot; onHide?: () => 
   const lib = game.winner === "liberal";
   const isHost = snap.meId === snap.hostId;
   const [history, setHistory] = useState(false);
-  const all = useMemo(
-    () => (game.secretHistory ? [...game.log, ...game.secretHistory] : game.log),
-    [game.log, game.secretHistory],
-  );
-  // Interleave secret and public entries in the order they happened.
-  const ordered = useMemo(() => {
-    if (!game.secretHistory) return game.log;
-    return all.slice().sort((a, b) => a.round - b.round);
-  }, [all, game.log, game.secretHistory]);
   return (
     <div className="fixed inset-0 z-30 overflow-y-auto bg-bg" data-testid="game-over">
       <div className={cx("anim-curtain flex flex-col items-center px-4 pb-6 pt-10 text-center", lib ? "bg-lib/25" : "bg-fas/25")}>
@@ -150,14 +141,14 @@ export function GameOver({ snap, onHide }: { snap: RoomSnapshot; onHide?: () => 
             );
           })}
         </ul>
-        {game.secretHistory && (
+        {game.fullHistory && (
           <div className="mt-4">
             <Button variant="ghost" className="w-full" onClick={() => setHistory((h) => !h)}>
               {history ? "Hide" : "Show"} full history
             </Button>
             {history && (
               <div className="card-surface -mx-4 mt-2 rounded-lg">
-                <LogList game={game} entries={ordered} />
+                <LogList game={game} entries={game.fullHistory} />
               </div>
             )}
           </div>

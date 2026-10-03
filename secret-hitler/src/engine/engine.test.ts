@@ -318,7 +318,7 @@ describe("legislative session", () => {
     s = legislate(s, 1, "L");
     const pub = publicView(s, true);
     expect(pub.discardCount).toBe(2);
-    expect(pub.secretHistory).toBeNull();
+    expect(pub.fullHistory).toBeNull();
     expect(pub.log.some((e) => "secret" in e)).toBe(false);
   });
 
@@ -570,8 +570,8 @@ describe("redaction", () => {
     let s = game(5, { deck: deck(L3, L3) });
     s.liberalPolicies = 4;
     s = legislate(s, 1, "L");
-    expect(publicView(s, true).secretHistory!.length).toBeGreaterThan(0);
-    expect(publicView(s, false).secretHistory).toBeNull();
+    expect(publicView(s, true).fullHistory!.filter((e) => "secret" in e).length).toBeGreaterThan(0);
+    expect(publicView(s, false).fullHistory).toBeNull();
   });
 });
 
