@@ -1,5 +1,6 @@
 // End-to-end check: N real browser tabs (separate storage, phone-sized) play a
 // full game through the UI. Usage: BASE=http://localhost:3000 PLAYERS=7 npm run e2e
+// Add BOTS=5 to have the host fill the room with that many bots (e.g. PLAYERS=2 BOTS=5).
 //
 // Each tab acts only on what its own screen shows. Along the way we check that
 // secrets stay where they belong.
@@ -8,7 +9,9 @@ import { mkdirSync } from "node:fs";
 import { chromium, type Browser, type Page } from "playwright-core";
 
 const BASE = process.env.BASE ?? "http://localhost:3000";
-const N = Number(process.env.PLAYERS ?? 7);
+const N = Number(process.env.PLAYERS ?? 7); // human tabs
+const BOTS = Number(process.env.BOTS ?? 0); // bots the host adds in the lobby
+const TOTAL = N + BOTS;
 const SHOTS = process.env.SHOTS ?? "e2e-screens";
 const EXE = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
 const MAX_STEPS = 4000;
@@ -82,12 +85,16 @@ async function main() {
     await p.getByTestId("join-room").click();
     await p.getByTestId("room-code").waitFor();
   }
-  await host.waitForFunction((n) => document.querySelectorAll('[data-testid="lobby-players"] li').length === n, N);
+  for (let i = 0; i < BOTS; i++) {
+    await host.getByTestId("bots-add").click();
+    await host.waitForFunction((n) => document.querySelectorAll('[data-testid="lobby-players"] li').length === n, N + i + 1);
+  }
+  await host.waitForFunction((n) => document.querySelectorAll('[data-testid="lobby-players"] li').length === n, TOTAL);
   await host.screenshot({ path: `${SHOTS}/lobby.png`, fullPage: true });
 
   // Reload one player mid-lobby: they must keep their seat.
-  await pages[1].reload();
-  await pages[1].getByTestId("room-code").waitFor();
+  await pages[N - 1].reload();
+  await pages[N - 1].getByTestId("room-code").waitFor();
 
   await host.getByTestId("start-game").click();
 
@@ -210,9 +217,10 @@ async function main() {
     // Mid-game: simulate a phone that slept and reloaded.
     if (!reloaded && steps > 20) {
       reloaded = true;
-      await pages[2].reload();
-      await pages[2].getByTestId("action-panel").waitFor({ timeout: 10_000 });
-      console.log(`${names[2]} reloaded mid-game and kept their seat`);
+      const r = Math.min(2, N - 1);
+      await pages[r].reload();
+      await pages[r].getByTestId("action-panel").waitFor({ timeout: 10_000 });
+      console.log(`${names[r]} reloaded mid-game and kept their seat`);
     }
     if (!acted) await sleep(350);
   }
@@ -221,7 +229,16 @@ async function main() {
   await host.screenshot({ path: `${SHOTS}/game-over.png`, fullPage: true });
   const winner = (await host.getByTestId("winner").textContent())!.trim();
   const final = await host.getByTestId("all-roles").locator("li").allTextContents();
-  console.log(`✓ ${winner} — ${N} players, ${steps} UI passes`);
+  console.log(`✓ ${winner} — ${N} humans + ${BOTS} bots, ${steps} UI passes`);
+  if (BOTS) {
+    await host.getByRole("button", { name: "View the final board" }).click();
+    await host.getByTestId("open-log").click();
+    const claims = ((await host.locator("ol").last().innerText()).match(/ says/g) ?? []).length;
+    console.log(`bot claims in the log: ${claims}`);
+    await host.screenshot({ path: `${SHOTS}/log-with-bots.png` });
+    await host.reload();
+    await host.getByTestId("game-over").waitFor();
+  }
 
   // Every role seen at night must match the final reveal.
   for (const [n, r] of roles) {
@@ -232,8 +249,8 @@ async function main() {
   for (const [n, r] of roles) {
     const allies = known.get(n) ?? [];
     if (r === "Liberal" && allies.length) fail(`Liberal ${n} saw allies`);
-    if (r === "Hitler" && N >= 7 && allies.length) fail(`Hitler ${n} saw Fascists in a ${N}-player game`);
-    if (r === "Hitler" && N <= 6 && allies.length !== 1) fail(`Hitler ${n} should know the Fascist in a ${N}-player game`);
+    if (r === "Hitler" && TOTAL >= 7 && allies.length) fail(`Hitler ${n} saw Fascists in a ${TOTAL}-player game`);
+    if (r === "Hitler" && TOTAL <= 6 && allies.length !== 1) fail(`Hitler ${n} should know the Fascist in a ${TOTAL}-player game`);
     if (r === "Fascist" && !allies.some((a) => a.includes("Hitler"))) fail(`Fascist ${n} doesn't know Hitler`);
   }
   console.log("✓ night knowledge and final roles consistent");

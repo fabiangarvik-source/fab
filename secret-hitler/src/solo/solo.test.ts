@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { legalActions } from "../engine/engine";
 import type { GameState } from "../engine/types";
 import { readTable } from "./bot";
+import { receivedFor } from "./runner";
 import { act, createSolo, humanClaim, pendingBots, secretsFor, soloSnapshot, stepBot, type SoloState } from "./solo";
 
 function mulberry(seed: number) {
@@ -115,7 +116,7 @@ describe("solo mode", () => {
         const pres = st.game.players.find((p) => p.id === last.president)!;
         const pass = st.game.log.findLast((e) => e.t === "pres_discard");
         if (pres.role !== "liberal" || !pass || pass.t !== "pres_discard" || !pass.passed.includes("L")) continue;
-        const read = readTable({ view: soloSnapshotFor(st, pres.id), secrets: secretsFor(st.game, pres.id), received: st.received[pres.id] ?? [] });
+        const read = readTable({ view: soloSnapshotFor(st, pres.id), secrets: secretsFor(st.game, pres.id), received: receivedFor(st.game, pres.id) });
         const top = [...read.sus.entries()].sort((a, b) => b[1] - a[1])[0][0];
         expect(top).toBe(last.chancellor);
         return;

@@ -44,7 +44,7 @@ npm run dev            # http://localhost:3000
 
 No database is needed locally: without `DATABASE_URL` rooms live in memory. To play from phones on your Wi-Fi, open `http://<your-computer's-LAN-IP>:3000` (the QR code uses whatever address the host opened).
 
-**Dev mode bots**: in the lobby the host sees "+1 / →5 / →10 / →12" buttons that add bot players who take random legal actions, so you can test any player count alone. Bots are off in production unless `ENABLE_BOTS=1`.
+**Bots in rooms**: in the lobby the host can fill empty seats with bots ("+1 / →5 / →7 / →10"), so two people can play a 7-player game. Bots run on the server with the same brain as solo mode, see only their own seat's information, move when someone polls, all vote at once, and post claims after each government. Set `DISABLE_BOTS=1` to turn them off.
 
 ## Solo mode
 
@@ -57,12 +57,13 @@ Note: the full game state sits in the player's own browser, so a determined play
 ## Tests
 
 ```bash
-npm test               # 83 unit tests: every rule in the brief incl. all edge cases,
+npm test               # 84 unit tests: every rule in the brief incl. all edge cases,
                        # API redaction, concurrency, and 1,600 random full games (5–12 players)
 npm run typecheck
 npm run dev & BASE=http://localhost:3000 PLAYERS=7 npm run e2e
                        # 7 real browser tabs play a full game through the UI,
                        # including a mid-game reload, then "Play again"
+                       # (add BOTS=5 with PLAYERS=2 for a mixed humans + bots room)
 npm run start -- -H 127.0.0.1 & BASE=http://127.0.0.1:3000 PLAYERS=7 npm run e2e:solo
                        # one tab plays solo vs bots, goes offline mid-game and reloads
 ```
@@ -72,7 +73,7 @@ npm run start -- -H 127.0.0.1 & BASE=http://127.0.0.1:3000 PLAYERS=7 npm run e2e
 | Variable | Where | Purpose |
 | --- | --- | --- |
 | `DATABASE_URL` (or `POSTGRES_URL`) | Vercel (required) | Postgres connection string. Neon via the Vercel Marketplace sets it for you. The `sh_rooms` table is created automatically. |
-| `ENABLE_BOTS` | optional | `1` shows the bot buttons outside development. |
+| `DISABLE_BOTS` | optional | `1` hides the "fill with bots" buttons. |
 
 ## Deploy to Vercel
 

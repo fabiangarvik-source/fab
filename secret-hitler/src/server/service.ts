@@ -11,7 +11,8 @@ const rand: Rand = {
   id: (bytes) => randomBytes(bytes).toString("base64url"),
 };
 
-export const botsAllowed = () => process.env.NODE_ENV !== "production" || process.env.ENABLE_BOTS === "1";
+/** Bots can fill empty seats in any room unless the deployment opts out. */
+export const botsAllowed = () => process.env.DISABLE_BOTS !== "1";
 const PRESENCE_WRITE_MS = 5_000;
 
 type Mutator<T> = (room: StoredRoom) => ({ ok: true; room: StoredRoom | null } & T) | { ok: false; error: string } | "skip";
