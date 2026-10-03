@@ -1,0 +1,620 @@
+<title>The Himmest</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Familjen+Grotesk:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: sports-bar scoreboard. Wordmark header + live quote ticker, tab rail, one main column with side cards that stack on phones. */
+:root{
+  --bg:#f6f4fb; --panel:#ffffff; --ink:#17162b; --muted:#615f7a; --line:#dcd8ea;
+  --accent:#2347ff; --accent-ink:#ffffff; --hi:#f4de4a; --hi-ink:#17162b;
+  --good:#138a4a; --bad:#c22f3b;
+  --display:"Bungee","Arial Black",Impact,sans-serif;
+  --body:"Familjen Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"DM Mono",ui-monospace,Menlo,Consolas,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#100f1e; --panel:#1a1930; --ink:#efedfb; --muted:#a3a0c2; --line:#2f2d4d;
+  --accent:#6f86ff; --accent-ink:#0d0c1a; --hi:#f4de4a; --hi-ink:#17162b;
+  --good:#4cd38a; --bad:#ff7a84; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#100f1e; --panel:#1a1930; --ink:#efedfb; --muted:#a3a0c2; --line:#2f2d4d;
+  --accent:#6f86ff; --accent-ink:#0d0c1a; --hi:#f4de4a; --hi-ink:#17162b;
+  --good:#4cd38a; --bad:#ff7a84; color-scheme:dark }
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 var(--body);padding-inline:16px;padding-block:0 48px}
+.wrap{max-width:980px;margin:0 auto}
+h1,h2,h3{font-family:var(--display);font-weight:400;line-height:1.05;text-wrap:balance;margin:0}
+h2{font-size:1.4rem} h3{font-size:1.05rem}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.small{font-size:.86rem}
+.label{font-family:var(--mono);font-size:.74rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;padding-block:20px 12px}
+.word{font-family:var(--display);font-size:clamp(2.2rem,8vw,3.8rem);line-height:.9;letter-spacing:.01em}
+.word span{background:var(--hi);color:var(--hi-ink);padding:0 .12em;border-radius:6px}
+.tag{font-size:.95rem;color:var(--muted);margin-top:6px}
+.who{display:flex;align-items:center;gap:10px}
+
+.ticker{overflow:hidden;border-block:2px solid var(--ink);margin-block:4px 14px;white-space:nowrap;background:var(--panel)}
+.ticker .run{display:inline-block;padding-block:7px;animation:tick 45s linear infinite;font-family:var(--mono);font-size:.88rem}
+.ticker .run b{font-family:var(--display);font-weight:400;background:var(--ink);color:var(--bg);padding:1px 7px;margin-inline:14px 8px;border-radius:4px}
+@keyframes tick{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){.ticker .run{animation:none}}
+
+nav.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px}
+nav.tabs button{border:2px solid var(--ink);background:transparent;border-radius:999px;padding:6px 14px;font-weight:700}
+nav.tabs button[aria-selected="true"]{background:var(--ink);color:var(--bg)}
+
+.grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:760px){.grid{grid-template-columns:minmax(0,1fr)}}
+.stack{display:flex;flex-direction:column;gap:16px;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;min-width:0}
+.card.loud{border:2px solid var(--ink);box-shadow:5px 5px 0 var(--ink)}
+.card h2{margin-bottom:10px}
+.prompt{background:var(--hi);color:var(--hi-ink);border-color:transparent}
+.prompt .label{color:var(--hi-ink);opacity:.75}
+.prompt p{font-size:1.15rem;font-weight:700;margin:6px 0 0}
+
+.row{display:grid;grid-template-columns:auto 40px minmax(0,1fr) auto;align-items:center;gap:10px;padding-block:10px;border-bottom:1px dashed var(--line)}
+.row:last-child{border-bottom:0}
+.rank{font-family:var(--display);width:1.8em;text-align:center;color:var(--muted)}
+.rank.first{color:var(--ink)}
+.av{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-size:.9rem;color:#fff;flex:none}
+.name{font-weight:700;overflow-wrap:anywhere}
+.arch{font-size:.82rem;color:var(--muted);overflow-wrap:anywhere}
+.bar{height:6px;background:var(--line);border-radius:3px;margin-top:5px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:3px}
+.count{font-family:var(--mono);font-size:.82rem;color:var(--muted)}
+
+.btn{border:2px solid var(--ink);background:var(--panel);border-radius:8px;padding:6px 12px;font-weight:700;white-space:nowrap}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.on{background:var(--hi);color:var(--hi-ink);border-color:var(--hi-ink)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{border-color:var(--line);font-weight:500}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);border-radius:999px;padding:3px 10px;background:transparent;font-size:.85rem}
+
+form{display:flex;flex-direction:column;gap:10px}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:480px){.two{grid-template-columns:1fr}}
+input,select,textarea{background:var(--bg);border:2px solid var(--line);border-radius:8px;padding:8px 10px;width:100%;min-width:0}
+textarea{resize:vertical;min-height:70px}
+.err{color:var(--bad);font-size:.88rem}
+
+.quote{padding-block:12px;border-bottom:1px dashed var(--line);display:flex;flex-direction:column;gap:6px}
+.quote:last-child{border-bottom:0}
+.quote blockquote{margin:0;font-size:1.12rem;font-weight:700;overflow-wrap:anywhere}
+.quote blockquote::before{content:"\201C"} .quote blockquote::after{content:"\201D"}
+.qmeta{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:.85rem;color:var(--muted)}
+.qmeta .sp{flex:1}
+
+.big{font-family:var(--display);font-size:2.4rem;line-height:1}
+.crown{display:flex;gap:12px;align-items:center}
+.stat{display:flex;justify-content:space-between;gap:10px;padding-block:6px;border-bottom:1px dashed var(--line)}
+.stat:last-child{border-bottom:0}
+.empty{padding:22px 4px;text-align:center;color:var(--muted)}
+.empty strong{display:block;color:var(--ink);font-family:var(--display);font-weight:400;font-size:1.1rem;margin-bottom:4px}
+
+.gate{max-width:520px;margin:30px auto}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-weight:700;max-width:calc(100% - 32px)}
+.pill{display:inline-block;font-family:var(--mono);font-size:.74rem;padding:1px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.pill.live{border-color:var(--good);color:var(--good)}
+.pill.closed{border-color:var(--bad);color:var(--bad)}
+.won{color:var(--good)} .lost{color:var(--bad)}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.92rem}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px dashed var(--line)}
+th{font-family:var(--mono);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:500}
+td.n{font-family:var(--mono);text-align:right}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="word">THE <span>HIMMEST</span></div>
+      <div class="tag">Daily democracy for Assumption's finest golden retrievers.</div>
+    </div>
+    <div class="who" id="who"></div>
+  </header>
+  <div class="ticker" aria-hidden="true"><div class="run" id="ticker"></div></div>
+  <nav class="tabs" id="tabs" role="tablist"></nav>
+  <main id="main">
+    <div class="card empty"><strong>Warming up the jumbotron…</strong>Loading today's race.</div>
+  </main>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(() => {
+"use strict";
+const TZ = "America/New_York";
+const START_HB = 1000, FLOOR_HB = 100, BET_CUTOFF_HOUR = 20;
+const COLS = ["profiles","votes","quotes","qvotes","vetoes","bets"];
+
+const ARCHETYPES = [
+  "Golden Retriever In Human Form","Gym Rat With A Heart Of Gold","Uses \"bro\" As Punctuation",
+  "Thinks Protein Is A Personality","Got Lost Inside The Library","Main Character Of The Dining Hall",
+  "Emotionally Available Himbo","Confidently Wrong, Spiritually Right","Just Happy To Be Here"
+];
+const PROMPTS = [
+  "Who said the most beautiful thing with the fewest brain cells?",
+  "Nominate whoever asked if the moon counts as a planet.",
+  "Who held the door for 45 seconds for someone 200 feet away?",
+  "Who tried to pay for something with a meal swipe that was not food?",
+  "Who explained a concept wrong with total confidence and good intentions?",
+  "Who got genuinely emotional about a dog today?",
+  "Who did a gym set mid-conversation without being asked?",
+  "Who walked into the wrong class and stayed anyway?",
+  "Who asked a question the professor had answered 30 seconds earlier?",
+  "Who complimented someone so sincerely it caused a scene?",
+  "Who forgot their own dorm room number?",
+  "Whose plan today was 100% vibes and 0% plan?"
+];
+const TITLES = [[0,"Has At Least Three Thoughts"],[1,"Certified Himbo"],[3,"Golden Retriever Energy"],[7,"Protein Shake Philosopher"],[15,"Himbo Emeritus"],[30,"Too Pure For This World"]];
+const FILLER = [
+  "Breaking: local sophomore still believes the library closes when he leaves",
+  "Weather update: 0% chance of a thought, 100% chance of good intentions",
+  "Reminder: the Himmest is an honor, not an insult. Mostly.",
+  "Himbucks are not real money. Please stop trying to Venmo them.",
+  "Polls close at midnight Eastern. Bets close at 8 PM. Brains close whenever."
+];
+
+/* ---------- time ---------- */
+function etParts(d = new Date()) {
+  const f = new Intl.DateTimeFormat("en-CA",{timeZone:TZ,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false});
+  const p = {}; for (const x of f.formatToParts(d)) p[x.type] = x.value;
+  return { day:`${p.year}-${p.month}-${p.day}`, h:(+p.hour)%24, m:+p.minute, s:+p.second };
+}
+const today = () => etParts().day;
+function secsToMidnight(){ const p = etParts(); return 86400 - (p.h*3600+p.m*60+p.s); }
+function secsToCutoff(){ const p = etParts(); return BET_CUTOFF_HOUR*3600 - (p.h*3600+p.m*60+p.s); }
+function fmtDur(s){ s=Math.max(0,s|0); const h=Math.floor(s/3600), m=Math.floor(s%3600/60); return h ? `${h}h ${m}m` : `${m}m ${s%60}s`; }
+function fmtDay(k){ const [y,m,d]=k.split("-").map(Number); return new Date(Date.UTC(y,m-1,d,12)).toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric",timeZone:"UTC"}); }
+function dayIndex(k){ const [y,m,d]=k.split("-").map(Number); return Math.floor(Date.UTC(y,m-1,d)/864e5); }
+
+/* ---------- dom helpers ---------- */
+function h(tag, attrs, ...kids){
+  const el = document.createElement(tag);
+  if (attrs) for (const [k,v] of Object.entries(attrs)) {
+    if (v == null || v === false) continue;
+    if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else if (k === "class") el.className = v;
+    else if (k === "style") el.style.cssText = v;
+    else el.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of kids.flat(Infinity)) if (c != null && c !== false) el.append(c instanceof Node ? c : document.createTextNode(String(c)));
+  return el;
+}
+let toastT;
+function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.hidden=false; clearTimeout(toastT); toastT=setTimeout(()=>t.hidden=true,2800); }
+function hue(s){ let x=0; for (const c of s) x=(x*31+c.charCodeAt(0))>>>0; return x%360; }
+function avatar(uid){
+  const p = S.profiles[uid]; const ini = p ? ((p.first||"?")[0]+(p.last||"")[0]||"").toUpperCase() : "?";
+  return h("div",{class:"av","aria-hidden":"true",style:`background:hsl(${hue(uid)} 62% 42%)`}, ini);
+}
+const nm = uid => { const p=S.profiles[uid]; return p ? `${p.first} ${p.last}`.trim() : "A former himbo"; };
+const firstNm = uid => S.profiles[uid]?.first || "Someone";
+function titleFor(w){ let t=TITLES[0][1]; for (const [n,s] of TITLES) if (w>=n) t=s; return t; }
+function cap(s){ return s ? s[0].toUpperCase()+s.slice(1).toLowerCase() : ""; }
+
+/* ---------- state ---------- */
+const S = { me:null, uid:null, readOnly:false, tab:"today",
+  profiles:{}, votes:{}, quotes:{}, qvotes:{}, vetoes:{}, bets:{}, loaded:new Set() };
+try { const t = localStorage.getItem("himmest.tab"); if (t) S.tab = t; } catch {}
+let db = null;
+
+async function write(col, data){
+  if (!db || !S.uid) return false;
+  try { await db.doc(`${col}/${S.uid}`).set(data); return true; }
+  catch(e){
+    if (e && e.code === "invalid_argument") { S.readOnly = true; toast("You can watch but not play. Ask the owner to invite you with edit access."); render(); }
+    else if (e && e.code === "quota_exceeded") toast("The database is full. Ask the owner to clear old data.");
+    else toast("That didn't save. Try again in a sec.");
+    return false;
+  }
+}
+const mine = col => S[col][S.uid] || {};
+
+/* ---------- derived data ---------- */
+function isMember(uid){ return !!S.profiles[uid]; }
+function tally(day){
+  const t = {};
+  for (const [voter, v] of Object.entries(S.votes)) {
+    const target = v?.days?.[day];
+    if (!isMember(voter) || !isMember(target) || target === voter) continue;
+    t[target] = (t[target]||0)+1;
+  }
+  return t;
+}
+function winnersOf(day){
+  const t = tally(day); const max = Math.max(0, ...Object.values(t));
+  return max > 0 ? new Set(Object.keys(t).filter(k => t[k] === max)) : new Set();
+}
+function allVoteDays(){
+  const s = new Set(); for (const v of Object.values(S.votes)) for (const d of Object.keys(v?.days||{})) s.add(d);
+  return [...s].sort();
+}
+function allQuotes(){
+  const out = [];
+  for (const [author, doc] of Object.entries(S.quotes)) {
+    if (!isMember(author)) continue;
+    for (const q of (doc?.items||[])) {
+      if (!q || typeof q.text !== "string" || !isMember(q.about)) continue;
+      const key = `${author}:${q.k}`;
+      if ((S.vetoes[q.about]?.keys||[]).includes(key)) continue;
+      out.push({ ...q, text:q.text.slice(0,220), author, key });
+    }
+  }
+  return out.sort((a,b)=>(b.ts||0)-(a.ts||0));
+}
+function quoteTally(day){
+  const t = {};
+  for (const [voter, v] of Object.entries(S.qvotes)) { const k=v?.days?.[day]; if (isMember(voter) && k) t[k]=(t[k]||0)+1; }
+  return t;
+}
+function ledger(){
+  const td = today(); const bal = {}, hist = {};
+  for (const uid of Object.keys(S.profiles)) { bal[uid]=START_HB; hist[uid]=[]; }
+  const byDay = {};
+  for (const [uid, doc] of Object.entries(S.bets)) {
+    if (!isMember(uid)) continue;
+    for (const b of (doc?.items||[])) {
+      const amt = Math.floor(+b?.amt||0);
+      if (amt < 1 || !isMember(b.on) || typeof b.day !== "string") continue;
+      (byDay[b.day] ||= []).push({ uid, on:b.on, amt, k:b.k });
+    }
+  }
+  const clamp = list => {
+    const per = {}; for (const b of list) per[b.uid]=(per[b.uid]||0)+b.amt;
+    return list.map(b => { const avail=Math.max(0,bal[b.uid]); return per[b.uid] > avail ? { ...b, amt:Math.floor(b.amt*avail/per[b.uid]) } : b; }).filter(b=>b.amt>0);
+  };
+  for (const day of Object.keys(byDay).filter(d=>d<td).sort()) {
+    for (const u in bal) if (bal[u] < FLOOR_HB) bal[u] = FLOOR_HB;
+    const list = clamp(byDay[day]); const pool = list.reduce((a,b)=>a+b.amt,0);
+    const win = winnersOf(day); const W = list.filter(b=>win.has(b.on)).reduce((a,b)=>a+b.amt,0);
+    for (const b of list) {
+      const pay = W === 0 ? b.amt : (win.has(b.on) ? Math.round(b.amt/W*pool) : 0);
+      bal[b.uid] += pay - b.amt;
+      hist[b.uid].push({ day, on:b.on, amt:b.amt, pay, refund:W===0 });
+    }
+  }
+  for (const u in bal) if (bal[u] < FLOOR_HB) bal[u] = FLOOR_HB;
+  const open = clamp(byDay[td]||[]);
+  const escrow = {}; for (const b of open) escrow[b.uid]=(escrow[b.uid]||0)+b.amt;
+  return { bal, hist, open, avail:u=>(bal[u]||0)-(escrow[u]||0) };
+}
+function crowns(){
+  const td = today(), c = {};
+  for (const d of allVoteDays()) if (d < td) for (const w of winnersOf(d)) c[w]=(c[w]||0)+1;
+  return c;
+}
+function streak(uid){
+  let n=0, k=dayIndex(today())-1;
+  const days = new Set(allVoteDays().filter(d=>winnersOf(d).has(uid)).map(dayIndex));
+  while (days.has(k)) { n++; k--; }
+  return n;
+}
+
+/* ---------- ticker ---------- */
+function renderTicker(){
+  const td = today();
+  const qs = allQuotes().filter(q=>q.day===td).slice(0,8).map(q=>[`${firstNm(q.about).toUpperCase()}`, `"${q.text}"`]);
+  const items = qs.length ? qs : FILLER.map(f=>["HIMBO NEWS", f]);
+  const run = document.getElementById("ticker"); run.replaceChildren();
+  for (let i=0;i<2;i++) for (const [a,b] of items) run.append(h("b",null,a), b);
+}
+
+/* ---------- views ---------- */
+const TABS = [["today","Today"],["quotes","Quotes"],["bets","Bets"],["fame","Hall of Fame"],["me","My Profile"]];
+function renderTabs(){
+  const nav = document.getElementById("tabs"); nav.replaceChildren();
+  if (!S.uid || !isMember(S.uid)) return;
+  for (const [k,l] of TABS) nav.append(h("button",{role:"tab","aria-selected":String(S.tab===k),onclick:()=>{S.tab=k; try{localStorage.setItem("himmest.tab",k)}catch{} render();}}, l));
+}
+function renderWho(){
+  const w = document.getElementById("who"); w.replaceChildren();
+  if (S.uid && isMember(S.uid)) {
+    const L = ledger();
+    w.append(avatar(S.uid), h("div",null, h("div",{class:"name"},nm(S.uid)), h("div",{class:"mono small muted"}, `${L.avail(S.uid).toLocaleString()} HB available`)));
+  }
+}
+
+function emptyBox(t, s){ return h("div",{class:"empty"}, h("strong",null,t), s); }
+
+function viewToday(){
+  const td = today(), t = tally(td), members = Object.keys(S.profiles);
+  const myVote = mine("votes").days?.[td];
+  const total = Object.values(t).reduce((a,b)=>a+b,0);
+  const order = members.slice().sort((a,b)=>(t[b]||0)-(t[a]||0) || nm(a).localeCompare(nm(b)));
+  const race = h("div",{class:"card loud"},
+    h("div",{style:"display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px"},
+      h("h2",null,"Today's race"), h("span",{class:"pill live"},`Polls close in ${fmtDur(secsToMidnight())}`)),
+    h("div",{class:"label",style:"margin-bottom:6px"}, `${total} vote${total===1?"":"s"} cast · ${fmtDay(td)}`),
+    members.length < 2 ? emptyBox("Not enough himbos yet.","Send the link to your friends. You need at least two profiles to start a race.") :
+    order.map((uid,i) => {
+      const n = t[uid]||0, self = uid===S.uid, picked = myVote===uid;
+      return h("div",{class:"row"},
+        h("div",{class:"rank"+(i===0&&n?" first":"")}, n ? i+1 : "–"),
+        avatar(uid),
+        h("div",{style:"min-width:0"},
+          h("div",{class:"name"}, nm(uid), self ? h("span",{class:"muted small"}," (you)") : null),
+          h("div",{class:"arch"}, S.profiles[uid].archetype || ""),
+          h("div",{class:"bar"}, h("i",{style:`width:${total? (n/total*100):0}%`})),
+          h("div",{class:"count"}, `${n} vote${n===1?"":"s"}`)),
+        self ? h("button",{class:"btn ghost",disabled:true,title:"You can't vote for yourself"},"You") :
+        h("button",{class:"btn"+(picked?" on":""),disabled:S.readOnly,onclick:()=>vote(uid)}, picked ? "Your pick" : "Vote"));
+    }));
+
+  const pr = h("div",{class:"card prompt"}, h("div",{class:"label"},"Today's prompt"), h("p",null, PROMPTS[dayIndex(td)%PROMPTS.length]));
+
+  const days = allVoteDays().filter(d=>d<td);
+  const last = days[days.length-1];
+  const yW = last ? [...winnersOf(last)] : [];
+  const champ = h("div",{class:"card"}, h("div",{class:"label"}, last ? `Reigning Himmest · ${fmtDay(last)}` : "Reigning Himmest"),
+    yW.length ? yW.map(u=>h("div",{class:"crown",style:"margin-top:10px"}, avatar(u), h("div",null,h("div",{class:"name"},nm(u)), h("div",{class:"arch"}, titleFor(crowns()[u]||0))))) :
+    emptyBox("Throne's empty.","The first crown goes out at midnight Eastern."));
+
+  const yourVote = h("div",{class:"card"}, h("div",{class:"label"},"Your ballot"),
+    h("p",{style:"margin:6px 0 0"}, myVote ? ["You voted for ", h("strong",null,nm(myVote)), ". You can switch until midnight."] : "You haven't voted yet. Democracy is waiting."));
+
+  return h("div",{class:"grid"}, h("div",{class:"stack"}, race), h("div",{class:"stack"}, pr, yourVote, champ));
+}
+async function vote(uid){
+  const td = today(); const cur = mine("votes");
+  const days = { ...(cur.days||{}) };
+  if (days[td] === uid) return;
+  days[td] = uid;
+  const keep = Object.keys(days).sort().slice(-400); const trimmed = {}; for (const k of keep) trimmed[k]=days[k];
+  if (await write("votes",{days:trimmed})) toast(`Vote locked in for ${firstNm(uid)}.`);
+}
+
+function viewQuotes(){
+  const td = today(), qs = allQuotes(), todayQs = qs.filter(q=>q.day===td), t = quoteTally(td);
+  const myQv = mine("qvotes").days?.[td];
+  const others = Object.keys(S.profiles).filter(u=>u!==S.uid).sort((a,b)=>nm(a).localeCompare(nm(b)));
+  const err = h("div",{class:"err",hidden:true});
+  const sel = h("select",{id:"q-about"}, h("option",{value:""},"Who said it?"), others.map(u=>h("option",{value:u},nm(u))));
+  const txt = h("textarea",{id:"q-text",maxlength:"220",placeholder:"\"If plants are so smart why don't they just walk to the sun\""});
+  const form = h("form",{onsubmit:async e=>{
+    e.preventDefault(); err.hidden=true;
+    const about = sel.value, text = txt.value.trim().replace(/^["“]|["”]$/g,"");
+    if (!about){ err.textContent="Pick who said it."; err.hidden=false; return; }
+    if (text.length < 3){ err.textContent="The quote is too short. Even a himbo says more than that."; err.hidden=false; return; }
+    const items = (mine("quotes").items||[]).slice(-149);
+    items.push({ k:Math.random().toString(36).slice(2,10), about, text:text.slice(0,220), day:td, ts:Date.now() });
+    if (await write("quotes",{items})) { txt.value=""; sel.value=""; toast("Quote submitted to the record."); }
+  }},
+    h("div",{class:"field"}, h("label",{class:"label",for:"q-about"},"Speaker"), sel),
+    h("div",{class:"field"}, h("label",{class:"label",for:"q-text"},"What they said"), txt),
+    err, h("button",{class:"btn primary",type:"submit",disabled:S.readOnly||!others.length},"Submit quote"),
+    h("div",{class:"small muted"},"Anyone you quote can strike it from the record. Keep it funny, not mean."));
+
+  const ranked = todayQs.slice().sort((a,b)=>(t[b.key]||0)-(t[a.key]||0));
+  const list = h("div",{class:"card loud"},
+    h("div",{style:"display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:4px"},
+      h("h2",null,"Himmest quote of the day"), h("span",{class:"pill live"},`${fmtDur(secsToMidnight())} left`)),
+    ranked.length ? ranked.map((q,i)=>quoteRow(q, t[q.key]||0, i===0 && (t[q.key]||0)>0, myQv)) :
+    emptyBox("No quotes yet today.","Heard something legendary? Submit it and let the people decide."));
+
+  const past = [...new Set(qs.map(q=>q.day))].filter(d=>d<td).sort().reverse().slice(0,10);
+  const arch = h("div",{class:"card"}, h("h3",null,"Quote archive"),
+    past.length ? past.map(d=>{
+      const qt = quoteTally(d), dq = qs.filter(q=>q.day===d).sort((a,b)=>(qt[b.key]||0)-(qt[a.key]||0));
+      const top = dq[0];
+      return h("div",{class:"quote"}, h("div",{class:"label"},fmtDay(d)), h("blockquote",null,top.text),
+        h("div",{class:"qmeta"}, `${nm(top.about)} · ${qt[top.key]||0} vote${(qt[top.key]||0)===1?"":"s"}`));
+    }) : h("p",{class:"muted small"},"Winning quotes land here at midnight."));
+
+  return h("div",{class:"grid"}, h("div",{class:"stack"}, list, arch), h("div",{class:"stack"}, h("div",{class:"card"}, h("h2",null,"Log a quote"), form)));
+}
+function quoteRow(q, n, top, myQv){
+  const isMine = q.author===S.uid, aboutMe = q.about===S.uid, picked = myQv===q.key;
+  return h("div",{class:"quote"},
+    top ? h("div",{class:"label",style:"color:var(--accent)"},"Leading") : null,
+    h("blockquote",null,q.text),
+    h("div",{class:"qmeta"},
+      h("strong",{style:"color:var(--ink)"}, `— ${nm(q.about)}`),
+      h("span",null,`logged by ${firstNm(q.author)}`),
+      h("span",{class:"sp"}),
+      h("span",{class:"mono"},`${n} vote${n===1?"":"s"}`),
+      isMine ? h("button",{class:"btn ghost",disabled:S.readOnly,onclick:()=>deleteQuote(q)},"Delete") : null,
+      aboutMe ? h("button",{class:"btn ghost",disabled:S.readOnly,onclick:()=>vetoQuote(q)},"Strike it") : null,
+      isMine ? null : h("button",{class:"btn"+(picked?" on":""),disabled:S.readOnly,onclick:()=>voteQuote(q)}, picked?"Your pick":"Vote")));
+}
+async function voteQuote(q){
+  const td = today(); const days = { ...(mine("qvotes").days||{}) }; days[td]=q.key;
+  const keep = Object.keys(days).sort().slice(-400); const tr={}; for (const k of keep) tr[k]=days[k];
+  if (await write("qvotes",{days:tr})) toast("Quote vote counted.");
+}
+async function deleteQuote(q){
+  const items = (mine("quotes").items||[]).filter(x=>x.k!==q.k);
+  if (await write("quotes",{items})) toast("Quote deleted.");
+}
+async function vetoQuote(q){
+  const keys = [...(mine("vetoes").keys||[]), q.key].slice(-500);
+  if (await write("vetoes",{keys})) toast("Struck from the record.");
+}
+
+function viewBets(){
+  const td = today(), L = ledger(), members = Object.keys(S.profiles);
+  const open = L.open, pool = open.reduce((a,b)=>a+b.amt,0);
+  const on = {}; for (const b of open) on[b.on]=(on[b.on]||0)+b.amt;
+  const closed = secsToCutoff() <= 0;
+  const avail = L.avail(S.uid);
+  const err = h("div",{class:"err",hidden:true});
+  const sel = h("select",{id:"b-on"}, h("option",{value:""},"Pick your himbo"), members.slice().sort((a,b)=>nm(a).localeCompare(nm(b))).map(u=>h("option",{value:u}, u===S.uid?`${nm(u)} (yourself, bold)`:nm(u))));
+  const amt = h("input",{id:"b-amt",type:"number",min:"1",step:"1",max:String(Math.max(0,avail)),placeholder:"Amount in HB",inputmode:"numeric"});
+  const quick = h("div",{class:"chips"}, [10,50,100].map(v=>h("button",{type:"button",class:"chip",onclick:()=>amt.value=Math.min(v,avail)}, `${v}`)),
+    h("button",{type:"button",class:"chip",onclick:()=>amt.value=avail},"All in (send it)"));
+  const form = h("form",{onsubmit:async e=>{
+    e.preventDefault(); err.hidden=true;
+    const who = sel.value, a = Math.floor(+amt.value);
+    if (secsToCutoff() <= 0){ err.textContent="Betting closed at 8 PM Eastern. Come back tomorrow."; err.hidden=false; return; }
+    if (!who){ err.textContent="Pick someone to bet on."; err.hidden=false; return; }
+    if (!(a>=1)){ err.textContent="Bet at least 1 HB."; err.hidden=false; return; }
+    if (a > avail){ err.textContent=`You only have ${avail} HB available.`; err.hidden=false; return; }
+    const items = (mine("bets").items||[]).slice(-299);
+    items.push({ k:Math.random().toString(36).slice(2,10), day:td, on:who, amt:a, ts:Date.now() });
+    if (await write("bets",{items})) { amt.value=""; toast(`${a} HB on ${firstNm(who)}. No refunds. (Unless nobody wins.)`); }
+  }},
+    h("div",{class:"field"}, h("label",{class:"label",for:"b-on"},"Winner"), sel),
+    h("div",{class:"field"}, h("label",{class:"label",for:"b-amt"},"Stake"), amt), quick, err,
+    h("button",{class:"btn primary",type:"submit",disabled:S.readOnly||closed||avail<1}, closed?"Betting closed":"Place bet"));
+
+  const board = h("div",{class:"card loud"},
+    h("div",{style:"display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px"},
+      h("h2",null,"Today's betting board"),
+      h("span",{class:"pill "+(closed?"closed":"live")}, closed ? "Closed at 8 PM" : `Closes in ${fmtDur(secsToCutoff())}`)),
+    h("div",{class:"label",style:"margin-bottom:8px"}, `Pool: ${pool.toLocaleString()} HB · winners split the whole pot`),
+    pool === 0 ? emptyBox("No money on the board.","Be the first. Early bettors get the juiciest odds.") :
+    h("div",{class:"tablewrap"}, h("table",null,
+      h("thead",null,h("tr",null,h("th",null,"Himbo"),h("th",{style:"text-align:right"},"Staked"),h("th",{style:"text-align:right"},"Pays"))),
+      h("tbody",null, Object.keys(on).sort((a,b)=>on[b]-on[a]).map(u=>h("tr",null,
+        h("td",null,nm(u)), h("td",{class:"n"},on[u].toLocaleString()), h("td",{class:"n"}, `${(pool/on[u]).toFixed(2)}x`)))))));
+
+  const myOpen = open.filter(b=>b.uid===S.uid);
+  const hist = (L.hist[S.uid]||[]).slice().reverse().slice(0,15);
+  const slip = h("div",{class:"card"}, h("h3",null,"Your slip"),
+    myOpen.length ? myOpen.map(b=>h("div",{class:"stat"}, h("span",null,`${b.amt} HB on ${nm(b.on)}`), h("span",{class:"mono muted"},"open"))) : h("p",{class:"muted small"},"No open bets today."),
+    hist.length ? [h("div",{class:"label",style:"margin-top:12px"},"Settled"), hist.map(r=>h("div",{class:"stat"},
+      h("span",{class:"small"}, `${fmtDay(r.day)} · ${r.amt} on ${firstNm(r.on)}`),
+      h("span",{class:"mono "+(r.refund?"muted":r.pay>r.amt?"won":"lost")}, r.refund?"refund": r.pay>0?`+${r.pay-r.amt}`:`−${r.amt}`)))] : null);
+
+  const wallet = h("div",{class:"card"}, h("div",{class:"label"},"Your wallet"),
+    h("div",{class:"big mono",style:"margin-top:6px"}, `${avail.toLocaleString()}`), h("div",{class:"small muted"},"Himbucks available to bet"),
+    h("p",{class:"small muted",style:"margin:10px 0 0"}, `Everyone starts with ${START_HB} HB. Go broke and the Himbo Stimulus tops you back up to ${FLOOR_HB} every day. Himbucks are worth exactly nothing.`));
+
+  return h("div",{class:"grid"}, h("div",{class:"stack"}, board, slip), h("div",{class:"stack"}, wallet, h("div",{class:"card"},h("h2",null,"Place a bet"),form)));
+}
+
+function viewFame(){
+  const c = crowns(), L = ledger(), members = Object.keys(S.profiles);
+  const ranked = members.slice().sort((a,b)=>(c[b]||0)-(c[a]||0) || nm(a).localeCompare(nm(b)));
+  const rich = members.slice().sort((a,b)=>(L.bal[b]||0)-(L.bal[a]||0)).slice(0,5);
+  const td = today();
+  const qWins = {};
+  for (const d of [...new Set(allQuotes().map(q=>q.day))].filter(d=>d<td)) {
+    const qt = quoteTally(d); const dq = allQuotes().filter(q=>q.day===d).sort((a,b)=>(qt[b.key]||0)-(qt[a.key]||0));
+    if (dq[0] && (qt[dq[0].key]||0)>0) qWins[dq[0].about]=(qWins[dq[0].about]||0)+1;
+  }
+  const crownTable = h("div",{class:"card loud"}, h("h2",null,"All-time crowns"),
+    !Object.keys(c).length ? emptyBox("No crowns handed out yet.","The first Himmest is crowned at midnight Eastern.") :
+    h("div",{class:"tablewrap"}, h("table",null,
+      h("thead",null,h("tr",null,h("th",null,"#"),h("th",null,"Himbo"),h("th",null,"Title"),h("th",{style:"text-align:right"},"Crowns"),h("th",{style:"text-align:right"},"Streak"))),
+      h("tbody",null, ranked.filter(u=>c[u]).map((u,i)=>h("tr",null,
+        h("td",{class:"mono"},i+1), h("td",{style:"font-weight:700"},nm(u)), h("td",{class:"small"},titleFor(c[u]||0)),
+        h("td",{class:"n"},c[u]||0), h("td",{class:"n"}, streak(u)||"–")))))));
+  const fund = h("div",{class:"card"}, h("h3",null,"Himbo Hedge Fund"), h("div",{class:"small muted",style:"margin-bottom:6px"},"Richest bettors, in worthless currency"),
+    rich.map(u=>h("div",{class:"stat"}, h("span",null,nm(u)), h("span",{class:"mono"},`${(L.bal[u]||0).toLocaleString()} HB`))));
+  const qk = Object.keys(qWins).sort((a,b)=>qWins[b]-qWins[a]).slice(0,5);
+  const quot = h("div",{class:"card"}, h("h3",null,"Most quotable"),
+    qk.length ? qk.map(u=>h("div",{class:"stat"}, h("span",null,nm(u)), h("span",{class:"mono"},`${qWins[u]} quote crown${qWins[u]===1?"":"s"}`))) : h("p",{class:"muted small"},"Nobody has won quote of the day yet."));
+  const ladder = h("div",{class:"card"}, h("h3",null,"Title ladder"), TITLES.map(([n,s])=>h("div",{class:"stat"}, h("span",null,s), h("span",{class:"mono muted"}, `${n}+ crown${n===1?"":"s"}`))));
+  return h("div",{class:"grid"}, h("div",{class:"stack"}, crownTable, ladder), h("div",{class:"stack"}, fund, quot));
+}
+
+function profileForm(existing, prefillEmail){
+  const p = existing || {};
+  const err = h("div",{class:"err",hidden:true});
+  const email = h("input",{id:"p-email",type:"email",value:p.email||prefillEmail||"",placeholder:"first.last@assumption.edu",autocomplete:"email"});
+  const first = h("input",{id:"p-first",value:p.first||"",placeholder:"First name",autocomplete:"given-name"});
+  const last = h("input",{id:"p-last",value:p.last||"",placeholder:"Last name",autocomplete:"family-name"});
+  const arch = h("select",{id:"p-arch"}, ARCHETYPES.map(a=>h("option",{value:a,selected:a===p.archetype},a)));
+  const bio = h("input",{id:"p-bio",value:p.bio||"",maxlength:"80",placeholder:"Most himbo thing you've ever done"});
+  const fill = () => {
+    const local = email.value.trim().toLowerCase().split("@")[0] || "";
+    const parts = local.split(/[._-]+/).filter(Boolean);
+    if (parts.length >= 2) { if (!first.value) first.value = cap(parts[0]); if (!last.value) last.value = cap(parts[parts.length-1]); }
+  };
+  email.addEventListener("blur", fill);
+  if (!existing) fill();
+  return h("form",{onsubmit:async e=>{
+    e.preventDefault(); err.hidden=true;
+    const em = email.value.trim().toLowerCase();
+    if (!/^[a-z0-9][a-z0-9._'-]{0,63}@assumption\.edu$/.test(em)) { err.textContent="Use your Assumption email, like first.last@assumption.edu."; err.hidden=false; return; }
+    const taken = Object.entries(S.profiles).find(([u,x])=>u!==S.uid && x.email===em);
+    if (taken) { err.textContent="Someone already claimed that email. If it's yours, tell the app owner."; err.hidden=false; return; }
+    const f = first.value.trim().slice(0,30), l = last.value.trim().slice(0,30);
+    if (!f || !l) { err.textContent="Add your first and last name."; err.hidden=false; return; }
+    const body = { email:em, first:cap(f), last:cap(l), archetype:arch.value, bio:bio.value.trim().slice(0,80), joined:p.joined||today() };
+    if (await write("profiles", body)) { toast(existing ? "Profile updated." : `Welcome to the arena, ${body.first}.`); S.tab = "today"; render(); }
+  }},
+    h("div",{class:"field"}, h("label",{class:"label",for:"p-email"},"Assumption email"), email),
+    h("div",{class:"two"}, h("div",{class:"field"}, h("label",{class:"label",for:"p-first"},"First name"), first), h("div",{class:"field"}, h("label",{class:"label",for:"p-last"},"Last name"), last)),
+    h("div",{class:"field"}, h("label",{class:"label",for:"p-arch"},"Himbo archetype"), arch),
+    h("div",{class:"field"}, h("label",{class:"label",for:"p-bio"},"Bio"), bio),
+    err, h("button",{class:"btn primary",type:"submit",disabled:S.readOnly}, existing ? "Save profile" : "Enter the arena"));
+}
+
+function viewMe(){
+  const c = crowns()[S.uid]||0, L = ledger(), p = S.profiles[S.uid];
+  const votesFor = Object.values(S.votes).reduce((a,v)=>a+Object.values(v?.days||{}).filter(x=>x===S.uid).length,0);
+  const quoted = allQuotes().filter(q=>q.about===S.uid).length;
+  const card = h("div",{class:"card loud"},
+    h("div",{class:"crown"}, avatar(S.uid), h("div",null, h("h2",{style:"margin:0"},nm(S.uid)), h("div",{class:"arch"},p.archetype))),
+    p.bio ? h("p",{style:"margin:12px 0 0;font-weight:700"}, `"${p.bio}"`) : null,
+    h("div",{style:"margin-top:12px"},
+      h("div",{class:"stat"},h("span",null,"Title"),h("strong",null,titleFor(c))),
+      h("div",{class:"stat"},h("span",null,"Crowns"),h("span",{class:"mono"},c)),
+      h("div",{class:"stat"},h("span",null,"Current streak"),h("span",{class:"mono"},streak(S.uid))),
+      h("div",{class:"stat"},h("span",null,"Lifetime votes received"),h("span",{class:"mono"},votesFor)),
+      h("div",{class:"stat"},h("span",null,"Times quoted"),h("span",{class:"mono"},quoted)),
+      h("div",{class:"stat"},h("span",null,"Himbucks"),h("span",{class:"mono"},(L.bal[S.uid]||0).toLocaleString())),
+      h("div",{class:"stat"},h("span",null,"Member since"),h("span",{class:"mono"},fmtDay(p.joined||today())))));
+  return h("div",{class:"grid"}, h("div",{class:"stack"}, card), h("div",{class:"stack"}, h("div",{class:"card"}, h("h2",null,"Edit profile"), profileForm(p))));
+}
+
+function viewGate(msg, sub){ return h("div",{class:"card loud gate"}, h("h2",null,msg), h("p",{class:"muted"},sub)); }
+
+function render(){
+  renderTicker(); renderTabs(); renderWho();
+  const main = document.getElementById("main");
+  let v;
+  if (!db) v = viewGate("Open this in claude.ai to play.","The Himmest keeps votes, quotes and bets in a shared database. Sign in to claude.ai and open the link the owner sent you.");
+  else if (!S.uid) v = viewGate("Sign in to play.","You need to be signed in to claude.ai so we know you only vote once a day.");
+  else if (COLS.some(c=>!S.loaded.has(c))) v = h("div",{class:"card empty"}, h("strong",null,"Warming up the jumbotron…"), "Loading today's race.");
+  else if (!isMember(S.uid)) v = h("div",{class:"gate"}, h("div",{class:"card loud"},
+      h("h2",null,"Make your himbo profile"),
+      h("p",{class:"muted"},"Assumption emails only. Your profile is how people vote for you, quote you and bet on you. If you don't make one, you're not in the game."),
+      profileForm(null, S.me?.email && /@assumption\.edu$/i.test(S.me.email) ? S.me.email : "")),
+      S.readOnly ? h("p",{class:"err"},"You have view access only. Ask the owner to invite you with edit access.") : null);
+  else v = ({today:viewToday,quotes:viewQuotes,bets:viewBets,fame:viewFame,me:viewMe}[S.tab]||viewToday)();
+  // keep focus/typing safe: don't rebuild while typing in a form
+  main.replaceChildren(v);
+}
+
+let pendingRender = false;
+function scheduleRender(){
+  const a = document.activeElement;
+  if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && document.getElementById("main").contains(a)) {
+    if (!pendingRender) { pendingRender = true; a.addEventListener("blur", ()=>{ pendingRender=false; setTimeout(render,0); }, { once:true }); }
+    return;
+  }
+  render();
+}
+
+async function start(){
+  render();
+  const c = window.claude;
+  if (!c || !c.use) { db = null; render(); return; }
+  const [dbNs, user] = await Promise.all([c.use("db"), c.use("user")]);
+  db = dbNs;
+  if (user) { S.me = await user.me(); S.uid = S.me.id; const w = await user.can("data.write"); if (w === false) S.readOnly = true; }
+  if (!db || !S.uid) { render(); return; }
+  for (const col of COLS) {
+    db.collection(col).onSnapshot(snap => {
+      const m = {}; for (const d of snap.docs) if (d.exists) m[d.id] = d.data();
+      S[col] = m; S.loaded.add(col); scheduleRender();
+    }, () => { S.loaded.add(col); scheduleRender(); });
+  }
+  setInterval(() => { const a=document.activeElement; if (!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))) render(); }, 30000);
+}
+start();
+})();
+</script>
