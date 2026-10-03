@@ -1,0 +1,1015 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Vote for today's Himmest, snap Himmest moments, log him quotes and bet on the Him of the Week.">
+<meta name="theme-color" content="#16142e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Himmest">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icon-180.png">
+<link rel="icon" type="image/png" href="/icon-192.png">
+<title>The Himmest</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Familjen+Grotesk:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a game-show arena. Jumbotron header + ticker, five sections behind one nav (top on desktop, thumb bar on phones), sticker-style cards. */
+:root{
+  --bg:#f2f0ff; --panel:#ffffff; --ink:#16142e; --muted:#5f5c80; --line:#dcd8f0;
+  --accent:#2f45ff; --accent-ink:#ffffff; --pop:#ff3d8b; --pop-ink:#ffffff;
+  --hi:#ffe14d; --hi-ink:#16142e; --good:#11894a; --bad:#c42a3a;
+  --display:"Bungee","Arial Black",Impact,sans-serif;
+  --body:"Familjen Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"DM Mono",ui-monospace,Menlo,Consolas,monospace;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#110f24; --panel:#1b1936; --ink:#f0eeff; --muted:#a6a2cc; --line:#302d55;
+  --accent:#7184ff; --accent-ink:#0e0c20; --pop:#ff6aa6; --pop-ink:#16142e;
+  --hi:#ffe14d; --hi-ink:#16142e; --good:#4fd58c; --bad:#ff7b88; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#110f24; --panel:#1b1936; --ink:#f0eeff; --muted:#a6a2cc; --line:#302d55;
+  --accent:#7184ff; --accent-ink:#0e0c20; --pop:#ff6aa6; --pop-ink:#16142e;
+  --hi:#ffe14d; --hi-ink:#16142e; --good:#4fd58c; --bad:#ff7b88; color-scheme:dark }
+*{box-sizing:border-box}
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;-webkit-tap-highlight-color:transparent}
+img{max-width:100%}
+[hidden]{display:none!important}
+.authtabs{display:flex;border:2px solid var(--ink);border-radius:12px;overflow:hidden;margin-bottom:14px}
+.authtabs button{flex:1;border:0;background:transparent;padding:9px;font-weight:700}
+.authtabs button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.install{display:flex;gap:12px;align-items:flex-start;background:var(--hi);color:var(--hi-ink);border:2px solid var(--ink);border-radius:var(--r);padding:12px 14px}
+.install b{font-family:var(--display);font-weight:400}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 var(--body);padding-inline:16px;padding-block:0 56px}
+.wrap{max-width:1000px;margin:0 auto}
+h1,h2,h3{font-family:var(--display);font-weight:400;line-height:1.05;text-wrap:balance;margin:0}
+h2{font-size:clamp(1.25rem,3.6vw,1.6rem)} h3{font-size:1.05rem}
+p{margin:0}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)} .small{font-size:.86rem}
+.label{font-family:var(--mono);font-size:.72rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+button,input,select,textarea{font:inherit;color:inherit}
+button,label.btn{cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+header.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:18px 10px}
+.word{font-family:var(--display);font-size:clamp(1.9rem,7vw,3.2rem);line-height:.9;display:flex;align-items:center;gap:.25em}
+.word span{background:var(--hi);color:var(--hi-ink);padding:.04em .16em;border-radius:8px;transform:rotate(-2deg);display:inline-block}
+.tag{font-size:.92rem;color:var(--muted);margin-top:6px}
+.mebtn{display:flex;align-items:center;gap:8px;border:2px solid var(--ink);background:var(--panel);border-radius:999px;padding:4px 12px 4px 4px;font-weight:700;max-width:100%}
+.mebtn .hb{font-family:var(--mono);font-size:.78rem;color:var(--muted);white-space:nowrap}
+.mebtn .nmx{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:9em}
+
+.ticker{overflow:hidden;border-block:3px solid var(--ink);margin-block:6px 14px;white-space:nowrap;background:var(--ink);color:var(--bg)}
+.ticker .run{display:inline-block;padding-block:7px;animation:tick 55s linear infinite;font-family:var(--mono);font-size:.86rem}
+.ticker .run b{font-family:var(--display);font-weight:400;background:var(--hi);color:var(--hi-ink);padding:1px 7px;margin-inline:16px 8px;border-radius:4px}
+@keyframes tick{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+nav.tabs{display:flex;gap:8px;margin-bottom:18px}
+nav.tabs button{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;border:2px solid var(--ink);background:var(--panel);border-radius:12px;padding:9px 10px;font-weight:700}
+nav.tabs button svg{width:20px;height:20px;flex:none}
+nav.tabs button[aria-selected="true"]{background:var(--ink);color:var(--bg);box-shadow:3px 3px 0 var(--pop)}
+@media (max-width:760px){
+  body{padding-block:0 calc(92px + env(safe-area-inset-bottom,0px))}
+  nav.tabs{position:fixed;left:0;right:0;bottom:0;margin:0;z-index:5;background:var(--panel);border-top:2px solid var(--ink);padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px));gap:4px}
+  nav.tabs button{flex-direction:column;gap:2px;border:0;border-radius:10px;padding:6px 2px;font-size:.72rem;background:transparent}
+  nav.tabs button[aria-selected="true"]{box-shadow:none}
+}
+
+.grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:16px;align-items:start}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:start}
+@media (max-width:860px){.grid3{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:760px){.grid{grid-template-columns:minmax(0,1fr)}}
+.stack{display:flex;flex-direction:column;gap:16px;min-width:0}
+.card{background:var(--panel);border:2px solid var(--line);border-radius:var(--r);padding:16px;min-width:0}
+.card.loud{border-color:var(--ink);box-shadow:6px 6px 0 var(--ink)}
+.card.pink{border-color:var(--ink);box-shadow:6px 6px 0 var(--pop)}
+.head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+
+.hero{border:3px solid var(--ink);border-radius:var(--r);padding:18px;background:
+  repeating-linear-gradient(135deg,transparent 0 18px,color-mix(in srgb,var(--hi) 30%,transparent) 18px 20px),var(--panel);display:flex;flex-direction:column;gap:10px}
+.hero h1{font-size:clamp(1.6rem,6vw,2.6rem)}
+.hero .q{font-size:1.1rem;font-weight:700}
+.commentary{display:flex;gap:10px;align-items:flex-start;background:var(--ink);color:var(--bg);border-radius:10px;padding:10px 12px;font-weight:500}
+.commentary b{font-family:var(--display);font-weight:400;color:var(--hi);white-space:nowrap}
+
+.voters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,150px),1fr));gap:12px}
+.vcard{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;background:var(--panel);border:2px solid var(--ink);border-radius:var(--r);padding:16px 10px 12px;transition:transform .12s}
+.vcard:hover:not(:disabled){transform:translateY(-3px) rotate(-1deg)}
+.vcard.picked{background:var(--hi);color:var(--hi-ink);box-shadow:4px 4px 0 var(--ink)}
+.vcard.picked .muted,.vcard.picked .label,.vcard.picked .brain .t{color:var(--hi-ink);opacity:.8}
+.vcard:disabled{cursor:default}
+.vcard .nmv{font-weight:700;line-height:1.2;overflow-wrap:anywhere}
+.vcard .votes{font-family:var(--display);font-size:1.5rem;line-height:1}
+.sticker{position:absolute;top:-10px;right:-6px;background:var(--pop);color:var(--pop-ink);font-family:var(--display);font-size:.72rem;padding:3px 8px;border-radius:6px;transform:rotate(6deg);border:2px solid var(--ink)}
+.sticker.lead{left:-6px;right:auto;transform:rotate(-6deg);background:var(--hi);color:var(--hi-ink)}
+
+.av{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-size:.95rem;color:#fff;flex:none;overflow:hidden;border:2px solid var(--ink)}
+.av img{width:100%;height:100%;object-fit:cover;display:block}
+.av.lg{width:72px;height:72px;font-size:1.4rem}
+.av.xl{width:96px;height:96px;font-size:1.9rem}
+.av.sm{width:30px;height:30px;font-size:.7rem;border-width:1.5px}
+
+.brain{width:100%;max-width:130px}
+.brain .meter{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.brain .meter i{display:block;height:100%;background:var(--pop)}
+.brain .t{font-family:var(--mono);font-size:.68rem;color:var(--muted)}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:2px solid var(--ink);background:var(--panel);border-radius:10px;padding:8px 14px;font-weight:700;white-space:nowrap}
+.btn.primary{background:var(--accent);color:var(--accent-ink)}
+.btn.pop{background:var(--pop);color:var(--pop-ink)}
+.btn.hi{background:var(--hi);color:var(--hi-ink)}
+.btn.ghost{border-color:var(--line);font-weight:500;padding:5px 10px;font-size:.88rem}
+.btn.huge{font-family:var(--display);font-weight:400;font-size:1.05rem;padding:14px 16px;flex:1;box-shadow:4px 4px 0 var(--ink)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btnrow{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+form{display:flex;flex-direction:column;gap:12px}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:480px){.two{grid-template-columns:1fr}}
+input,select,textarea{background:var(--bg);border:2px solid var(--line);border-radius:10px;padding:9px 11px;width:100%;min-width:0}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);outline:none}
+textarea{resize:vertical;min-height:84px}
+.err{color:var(--bad);font-size:.88rem;font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:2px solid var(--line);border-radius:999px;padding:4px 11px;background:transparent;font-size:.86rem;font-weight:700}
+.people{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+.person{display:flex;flex-direction:column;align-items:center;gap:4px;border:2px solid transparent;border-radius:12px;background:transparent;padding:6px;min-width:72px;font-size:.8rem;font-weight:700}
+.person[aria-pressed="true"]{border-color:var(--ink);background:var(--hi);color:var(--hi-ink)}
+.preview{width:100%;max-height:320px;object-fit:contain;border-radius:10px;border:2px solid var(--ink);background:var(--bg)}
+
+.bubble{position:relative;background:var(--bg);border:2px solid var(--ink);border-radius:16px;padding:14px 16px;font-size:1.2rem;font-weight:700;overflow-wrap:anywhere}
+.bubble::after{content:"";position:absolute;left:26px;bottom:-11px;width:18px;height:18px;background:var(--bg);border-right:2px solid var(--ink);border-bottom:2px solid var(--ink);transform:rotate(45deg)}
+.bubble.gold{background:var(--hi);color:var(--hi-ink);font-size:clamp(1.25rem,4vw,1.7rem)}
+.bubble.gold::after{background:var(--hi)}
+.qitem{display:flex;flex-direction:column;gap:14px;padding-block:14px;border-bottom:2px dashed var(--line)}
+.qitem:last-child{border-bottom:0}
+.byline{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:.88rem;color:var(--muted)}
+.byline strong{color:var(--ink)}
+.byline .sp{flex:1}
+
+.feed{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,230px),1fr));gap:14px}
+.moment{display:flex;flex-direction:column;gap:8px;background:var(--panel);border:2px solid var(--ink);border-radius:var(--r);padding:10px;min-width:0}
+.moment .pic{padding:0;border:0;border-radius:10px;overflow:hidden;background:var(--line);aspect-ratio:4/5;cursor:zoom-in;max-width:100%}
+.moment .pic img{width:100%;height:100%;object-fit:cover;display:block}
+.moment .cap{font-weight:700;overflow-wrap:anywhere}
+.reacts{display:flex;gap:6px;flex-wrap:wrap}
+.react{border:2px solid var(--line);background:transparent;border-radius:999px;padding:2px 9px;font-size:.88rem;display:inline-flex;gap:4px;align-items:center}
+.react[aria-pressed="true"]{border-color:var(--ink);background:var(--hi);color:var(--hi-ink)}
+.react:disabled{cursor:default;opacity:.7}
+.spot{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:center}
+@media (max-width:560px){.spot{grid-template-columns:minmax(0,1fr)}}
+.spot img{width:100%;border-radius:10px;border:2px solid var(--ink);aspect-ratio:4/5;object-fit:cover;cursor:zoom-in}
+
+.row{display:grid;grid-template-columns:28px auto minmax(0,1fr) auto;align-items:center;gap:10px;padding-block:9px;border-bottom:2px dashed var(--line)}
+.row:last-child{border-bottom:0}
+.rank{font-family:var(--display);text-align:center;color:var(--muted)}
+.rank.gold{color:var(--ink)}
+.nm{font-weight:700;overflow-wrap:anywhere;line-height:1.2}
+.sub{font-size:.8rem;color:var(--muted);overflow-wrap:anywhere}
+.pts{font-family:var(--mono);font-weight:500;text-align:right;white-space:nowrap}
+.seg{display:flex;border:2px solid var(--ink);border-radius:12px;overflow:hidden;margin-bottom:14px}
+.seg button{flex:1;border:0;background:transparent;padding:8px 6px;font-weight:700;border-right:2px solid var(--ink)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.stat{display:flex;justify-content:space-between;gap:10px;padding-block:7px;border-bottom:2px dashed var(--line)}
+.stat:last-child{border-bottom:0}
+.big{font-family:var(--display);font-size:2.3rem;line-height:1}
+.pill{display:inline-block;font-family:var(--mono);font-size:.72rem;padding:2px 9px;border-radius:999px;border:2px solid var(--line);color:var(--muted);white-space:nowrap}
+.pill.live{border-color:var(--good);color:var(--good)} .pill.closed{border-color:var(--bad);color:var(--bad)}
+.won{color:var(--good)} .lost{color:var(--bad)}
+.empty{padding:20px 6px;text-align:center;color:var(--muted)}
+.empty strong{display:block;color:var(--ink);font-family:var(--display);font-weight:400;font-size:1.1rem;margin-bottom:4px}
+.wallet{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;background:var(--ink);color:var(--bg);border-radius:var(--r);padding:16px 18px}
+.wallet .big{color:var(--hi)}
+.wallet p{opacity:.75}
+.slip{border:2px dashed var(--ink);border-radius:10px;padding:10px 12px;font-family:var(--mono);font-size:.84rem;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.trophies{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;text-align:center}
+.trophies div{border:2px solid var(--line);border-radius:10px;padding:8px 4px}
+.trophies .big{font-size:1.6rem}
+.gate{max-width:560px;margin:24px auto}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(100px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:700;max-width:calc(100% - 32px);z-index:20;border:2px solid var(--hi)}
+.lightbox{position:fixed;inset:0;background:rgba(10,9,24,.9);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:calc(20px + env(safe-area-inset-top,0px)) 16px calc(20px + env(safe-area-inset-bottom,0px));z-index:30;cursor:zoom-out}
+.lightbox img{max-width:100%;max-height:78vh;border-radius:10px}
+.lightbox p{color:#fff;font-weight:700;text-align:center;max-width:60ch;overflow-wrap:anywhere}
+canvas.confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:25}
+@media (prefers-reduced-motion:reduce){.ticker .run{animation:none}.vcard{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="word">THE <span>HIMMEST</span></div>
+      <div class="tag">The daily award nobody asked for and everybody deserves.</div>
+    </div>
+    <div id="who"></div>
+  </header>
+  <div class="ticker" aria-hidden="true"><div class="run" id="ticker"></div></div>
+  <nav class="tabs" id="tabs" role="tablist" aria-label="Sections" hidden></nav>
+  <main id="main">
+    <div class="card empty"><strong>Warming up the jumbotron…</strong>Loading today's race.</div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(() => {
+"use strict";
+const TZ = "America/New_York";
+const START_HB = 1000, ALLOW_HB = 25, FLOOR_HB = 100;
+const PTS_VOTE = 3, PTS_CROWN = 5, PTS_QUOTE = 1, PTS_REACT = 1;
+const PHOTO_KEEP = 12, PHOTO_DOC_MAX = 150000;
+const COLS = ["profiles","votes","quotes","qvotes","vetoes","bets","photos","reacts"];
+
+const ARCHETYPES = [
+  "Golden Retriever In Human Form","Gym Rat With A Heart Of Gold","Uses \"bro\" As Punctuation",
+  "Thinks Protein Is A Personality","Got Lost Inside The Library","Main Character Of The Dining Hall",
+  "Emotionally Available Himbo","Confidently Wrong, Spiritually Right","Just Happy To Be Here",
+  "Would Fight A Goose For You","Owns One Pan And It's For Eggs"
+];
+const PROMPTS = [
+  "Who said the most beautiful thing with the fewest brain cells?",
+  "Who asked if the moon counts as a planet?",
+  "Who held the door for someone 200 feet away?",
+  "Who tried to pay with something that was not money?",
+  "Who explained something wrong with total confidence and good intentions?",
+  "Who got genuinely emotional about a dog today?",
+  "Who did a gym set mid-conversation without being asked?",
+  "Who walked into the wrong class and stayed anyway?",
+  "Who asked a question that was answered 30 seconds earlier?",
+  "Who complimented someone so sincerely it caused a scene?",
+  "Who forgot where they live, briefly?",
+  "Whose plan today was 100% vibes and 0% plan?",
+  "Who pushed a pull door and blamed the door?",
+  "Who put something in the microwave that should never go in a microwave?"
+];
+const TITLES = [[0,"Has At Least Three Thoughts"],[1,"Certified Himbo"],[3,"Golden Retriever Energy"],[7,"Protein Shake Philosopher"],[15,"Himbo Emeritus"],[30,"Too Pure For This World"]];
+const REACTS = { dead:["💀","Dead"], zero:["🧠","0 brain cells"], dog:["🐶","Golden retriever"], iconic:["👑","Iconic"] };
+const PERIODS = { week:"Him of the Week", month:"Him of the Month", year:"Him of the Year" };
+const FILLER = [
+  "Weather update: 0% chance of a thought, 100% chance of good intentions",
+  "Reminder: the Himmest is an honor. Mostly.",
+  "Himbucks are not real money. Please stop trying to Venmo them.",
+  "Polls close at midnight. Brains close whenever.",
+  "Scientists confirm: being the Himmest burns zero calories"
+];
+const ICONS = {
+  today:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 8l4 4 5-7 5 7 4-4-2 11H5z"/></svg>',
+  moments:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg>',
+  quotes:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg>',
+  bets:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="9" r="1.3" fill="currentColor"/><circle cx="15" cy="15" r="1.3" fill="currentColor"/><circle cx="15" cy="9" r="1.3" fill="currentColor"/><circle cx="9" cy="15" r="1.3" fill="currentColor"/></svg>',
+  ranks:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 20V12h4v8M10 20V6h4v14M16 20v-5h4v5"/></svg>'
+};
+
+/* ---------- time ---------- */
+function etParts(d = new Date()){
+  const f = new Intl.DateTimeFormat("en-CA",{timeZone:TZ,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false});
+  const p = {}; for (const x of f.formatToParts(d)) p[x.type] = x.value;
+  return { day:`${p.year}-${p.month}-${p.day}`, h:(+p.hour)%24, m:+p.minute, s:+p.second };
+}
+const today = () => etParts().day;
+function secsToMidnight(){ const p = etParts(); return 86400 - (p.h*3600+p.m*60+p.s); }
+function fmtDur(s){ s=Math.max(0,s|0); const d=Math.floor(s/86400), h=Math.floor(s%86400/3600), m=Math.floor(s%3600/60); return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m ${s%60}s`; }
+function dayIndex(k){ const [y,m,d]=k.split("-").map(Number); return Math.floor(Date.UTC(y,m-1,d)/864e5); }
+function keyOf(i){ return new Date(i*864e5).toISOString().slice(0,10); }
+const asDate = k => new Date(dayIndex(k)*864e5+432e5);
+function fmtDay(k){ return asDate(k).toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",timeZone:"UTC"}); }
+function periodOf(type, day){
+  const i = dayIndex(day);
+  if (type === "week") { const s = i - ((i+3)%7); return { type, key:"w"+keyOf(s), start:keyOf(s), end:keyOf(s+6) }; }
+  const [y,m] = day.split("-").map(Number);
+  if (type === "month") return { type, key:"m"+day.slice(0,7), start:keyOf(Date.UTC(y,m-1,1)/864e5), end:keyOf(Date.UTC(y,m,1)/864e5-1) };
+  return { type, key:"y"+y, start:`${y}-01-01`, end:`${y}-12-31` };
+}
+function periodName(per){
+  if (per.type === "week") return `Week of ${asDate(per.start).toLocaleDateString("en-US",{month:"short",day:"numeric",timeZone:"UTC"})}`;
+  if (per.type === "month") return asDate(per.start).toLocaleDateString("en-US",{month:"long",year:"numeric",timeZone:"UTC"});
+  return per.start.slice(0,4);
+}
+function betCloseSecs(per, td){ return (dayIndex(per.end) - dayIndex(td) - 1) * 86400 + secsToMidnight(); }
+function earlyBird(per, day){ const len = dayIndex(per.end)-dayIndex(per.start)+1, rem = dayIndex(per.end)-dayIndex(day)+1; return 1 + rem/len; }
+
+/* ---------- dom ---------- */
+function h(tag, attrs, ...kids){
+  const el = document.createElement(tag);
+  if (attrs) for (const [k,v] of Object.entries(attrs)) {
+    if (v == null || v === false) continue;
+    if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else if (k === "class") el.className = v;
+    else if (k === "style") el.style.cssText = v;
+    else if (k === "value") el.value = v;
+    else el.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of kids.flat(Infinity)) if (c != null && c !== false) el.append(c instanceof Node ? c : document.createTextNode(String(c)));
+  return el;
+}
+function icon(name){ const s = h("span",{"aria-hidden":"true",style:"display:inline-flex"}); s.innerHTML = ICONS[name]; return s; }
+let toastT;
+function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.hidden=false; clearTimeout(toastT); toastT=setTimeout(()=>t.hidden=true,3000); }
+function confetti(){
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const c = h("canvas",{class:"confetti","aria-hidden":"true"}); document.body.append(c);
+  const W = c.width = innerWidth, H = c.height = innerHeight, g = c.getContext("2d");
+  const cs = getComputedStyle(document.documentElement), cols = ["--hi","--pop","--accent","--good"].map(v=>cs.getPropertyValue(v).trim()||"#fc0");
+  const ps = Array.from({length:90},()=>({x:W/2,y:H*0.45,vx:(Math.random()-.5)*14,vy:-Math.random()*13-4,r:Math.random()*6+4,a:Math.random()*6,c:cols[Math.random()*cols.length|0]}));
+  let t = 0;
+  (function f(){ g.clearRect(0,0,W,H); for (const p of ps){ p.vy+=.45; p.x+=p.vx; p.y+=p.vy; p.a+=.2; g.save(); g.translate(p.x,p.y); g.rotate(p.a); g.fillStyle=p.c; g.fillRect(-p.r/2,-p.r/4,p.r,p.r/2); g.restore(); }
+    if (++t < 90) requestAnimationFrame(f); else c.remove(); })();
+}
+function lightbox(src, caption){
+  const box = h("div",{class:"lightbox",role:"dialog","aria-label":"Photo",tabindex:"-1",onclick:()=>box.remove(),onkeydown:e=>{ if (e.key==="Escape") box.remove(); }},
+    h("img",{src,alt:caption||"Photo"}), caption ? h("p",null,caption) : null, h("span",{class:"small",style:"color:#cfcde6"},"Tap anywhere to close"));
+  document.body.append(box); box.focus();
+}
+const okImg = u => typeof u === "string" && /^\/api\/img\?k=[A-Za-z0-9_-]{4,64}$/.test(u);
+function loadImage(file){
+  return new Promise((res, rej) => {
+    if (!file || !/^image\//.test(file.type)) return rej(new Error("That file isn't a picture."));
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); res(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("Couldn't read that picture. Try a JPG or PNG.")); };
+    img.src = url;
+  });
+}
+/* Shrink a picture so it fits in the shared database. */
+async function compress(file, { max, square, budget }){
+  const img = await loadImage(file);
+  let sw = img.naturalWidth, sh = img.naturalHeight, sx = 0, sy = 0;
+  if (square) { const m = Math.min(sw, sh); sx = (sw-m)/2; sy = (sh-m)/2; sw = sh = m; }
+  let scale = Math.min(1, max / Math.max(sw, sh));
+  for (let tries = 0; tries < 8; tries++) {
+    const c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(sw*scale)); c.height = Math.max(1, Math.round(sh*scale));
+    const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0,0,c.width,c.height);
+    g.drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height);
+    for (const q of [0.8, 0.68, 0.56, 0.45]) { const d = c.toDataURL("image/jpeg", q); if (d.length <= budget) return d; }
+    scale *= 0.75;
+  }
+  throw new Error("That picture is too big even after shrinking.");
+}
+function picking(){ pickUntil = Date.now() + 120000; }
+const rid = () => Math.random().toString(36).slice(2,10);
+const cap1 = s => s ? s[0].toUpperCase()+s.slice(1) : "";
+
+/* ---------- state ---------- */
+const S = { uid:null, readOnly:false, tab:"today", rankTab:"week", email:"",
+  profiles:{}, votes:{}, quotes:{}, qvotes:{}, vetoes:{}, bets:{}, photos:{}, reacts:{}, loaded:new Set() };
+const draft = { moment:{ img:null, about:"", caption:"" }, quote:{ about:"", text:"" }, bets:{ week:{on:"",amt:""}, month:{on:"",amt:""}, year:{on:"",amt:""} } };
+try { const t = localStorage.getItem("himmest.tab"); if (t) S.tab = t; } catch {}
+let D = null, V = "", authed = null;
+
+async function api(path, opts = {}){
+  let r;
+  try { r = await fetch(path, { credentials:"same-origin", ...opts, headers:{ "content-type":"application/json", ...(opts.headers||{}) } }); }
+  catch { throw Object.assign(new Error("No connection. Check your internet and try again."), { status:0 }); }
+  let j = null; try { j = await r.json(); } catch {}
+  if (!r.ok) throw Object.assign(new Error(j?.error || "Something went wrong. Try again."), { status:r.status });
+  return j;
+}
+async function uploadImg(kind, data){ return (await api("/api/img", { method:"POST", body:JSON.stringify({ kind, data }) })).url; }
+
+const isMember = uid => !!S.profiles[uid];
+const members = () => Object.keys(S.profiles);
+const mine = col => S[col][S.uid] || {};
+const nm = uid => { const p=S.profiles[uid]; return p ? `${p.first||""} ${p.last||""}`.trim() || "Mystery Him" : "A former himbo"; };
+const firstNm = uid => S.profiles[uid]?.first || "Someone";
+function hue(s){ let x=0; for (const c of s) x=(x*31+c.charCodeAt(0))>>>0; return x%360; }
+function avatar(uid, size){
+  const p = S.profiles[uid], cls = "av" + (size ? " "+size : "");
+  const style = `background:hsl(${hue(uid)} 62% 42%)`;
+  if (p && okImg(p.photo)) return h("div",{class:cls,"aria-hidden":"true",style}, h("img",{src:p.photo,alt:""}));
+  const ini = p ? (((p.first||"?")[0]||"")+((p.last||"")[0]||"")).toUpperCase() : "?";
+  return h("div",{class:cls,"aria-hidden":"true",style}, ini);
+}
+function titleFor(n){ let t=TITLES[0][1]; for (const [k,s] of TITLES) if (n>=k) t=s; return t; }
+function emptyBox(t, s){ return h("div",{class:"empty"}, h("strong",null,t), s); }
+
+async function write(col, data){
+  if (!S.uid) return false;
+  try { await api("/api/doc", { method:"POST", body:JSON.stringify({ col, data }) }); S[col] = { ...S[col], [S.uid]:data }; return true; }
+  catch(e){ if (e.status === 401) { authed = false; render(); } toast(e.message); return false; }
+}
+
+/* ---------- derived data (rebuilt each render) ---------- */
+function derive(){
+  const td = today();
+  const quotes = [], photos = [];
+  for (const [author, doc] of Object.entries(S.quotes)) {
+    if (!isMember(author)) continue;
+    for (const q of (doc?.items||[])) {
+      if (!q || typeof q.text !== "string" || !isMember(q.about) || typeof q.day !== "string") continue;
+      const key = `${author}:${q.k}`;
+      if ((S.vetoes[q.about]?.keys||[]).includes(key)) continue;
+      quotes.push({ ...q, text:q.text.slice(0,240), author, key });
+    }
+  }
+  for (const [author, doc] of Object.entries(S.photos)) {
+    if (!isMember(author)) continue;
+    for (const p of (doc?.items||[])) {
+      if (!p || !okImg(p.img) || !isMember(p.about) || typeof p.day !== "string") continue;
+      const key = `p:${author}:${p.k}`;
+      if ((S.vetoes[p.about]?.keys||[]).includes(key)) continue;
+      photos.push({ ...p, caption:String(p.caption||"").slice(0,140), author, key });
+    }
+  }
+  quotes.sort((a,b)=>(b.ts||0)-(a.ts||0)); photos.sort((a,b)=>(b.ts||0)-(a.ts||0));
+  const qByKey = new Map(quotes.map(q=>[q.key,q])), pByKey = new Map(photos.map(p=>[p.key,p]));
+  const pts = {}, add = (d,u,n) => { (pts[d] ||= {}); pts[d][u] = (pts[d][u]||0) + n; };
+
+  const dv = {};
+  for (const [voter, v] of Object.entries(S.votes)) {
+    if (!isMember(voter)) continue;
+    for (const [d, t] of Object.entries(v?.days||{})) {
+      if (!isMember(t) || t === voter || d > td) continue;
+      (dv[d] ||= {}); dv[d][t] = (dv[d][t]||0) + 1; add(d, t, PTS_VOTE);
+    }
+  }
+  const dw = {};
+  for (const [d, t] of Object.entries(dv)) {
+    const max = Math.max(0, ...Object.values(t));
+    dw[d] = max > 0 ? new Set(Object.keys(t).filter(k=>t[k]===max)) : new Set();
+    if (d < td) for (const w of dw[d]) add(d, w, PTS_CROWN);
+  }
+  const qv = {};
+  for (const [voter, v] of Object.entries(S.qvotes)) {
+    if (!isMember(voter)) continue;
+    for (const [d, k] of Object.entries(v?.days||{})) {
+      const q = qByKey.get(k);
+      if (!q || q.day !== d || voter === q.author || voter === q.about) continue;
+      qv[k] = (qv[k]||0) + 1; add(d, q.about, PTS_QUOTE);
+    }
+  }
+  const rc = {};
+  for (const [who, doc] of Object.entries(S.reacts)) {
+    if (!isMember(who)) continue;
+    for (const [k, type] of Object.entries(doc?.map||{})) {
+      const p = pByKey.get(k);
+      if (!p || !REACTS[type] || who === p.about) continue;
+      const r = (rc[k] ||= { total:0 }); r[type] = (r[type]||0) + 1; r.total++;
+      add(p.day, p.about, PTS_REACT);
+    }
+  }
+  return { td, quotes, photos, pts, dv, dw, qv, rc };
+}
+function standings(start, end){
+  const tot = {}; for (const u of members()) tot[u] = 0;
+  for (const [d, m] of Object.entries(D.pts)) if (d >= start && d <= end) for (const [u,n] of Object.entries(m)) if (u in tot) tot[u] += n;
+  return members().sort((a,b)=>tot[b]-tot[a] || nm(a).localeCompare(nm(b))).map(u=>({ uid:u, pts:tot[u] }));
+}
+function winnersOfPeriod(per){
+  const st = standings(per.start, per.end); const max = st[0]?.pts || 0;
+  return max > 0 ? new Set(st.filter(s=>s.pts===max).map(s=>s.uid)) : new Set();
+}
+function brainCells(uid){
+  const wk = periodOf("week", D.td); const s = standings(wk.start, wk.end).find(x=>x.uid===uid);
+  return Math.max(0, 100 - (s?.pts||0) * 2);
+}
+function trophies(uid){
+  const td = D.td, out = { day:0, week:0, month:0, year:0 };
+  for (const [d, w] of Object.entries(D.dw)) if (d < td && w.has(uid)) out.day++;
+  for (const type of ["week","month","year"]) for (const x of pastWinners(type)) if (x.winners.includes(uid)) out[type]++;
+  return out;
+}
+function pastWinners(type){
+  const td = D.td, seen = new Map();
+  for (const d of Object.keys(D.pts)) { const per = periodOf(type, d); if (per.end < td && !seen.has(per.key)) seen.set(per.key, per); }
+  return [...seen.values()].sort((a,b)=>b.end.localeCompare(a.end)).map(per=>({ per, winners:[...winnersOfPeriod(per)] })).filter(x=>x.winners.length);
+}
+function ledger(){
+  const td = D.td, bal = {}, hist = {};
+  for (const u of members()) {
+    const days = S.votes[u]?.days || {};
+    const voted = Object.keys(days).filter(d => d < td && isMember(days[d]) && days[d] !== u).length;
+    bal[u] = START_HB + ALLOW_HB * voted; hist[u] = [];
+  }
+  const groups = {};
+  for (const [u, doc] of Object.entries(S.bets)) {
+    if (!isMember(u)) continue;
+    for (const b of (doc?.items||[])) {
+      if (!b || !PERIODS[b.type] || typeof b.day !== "string" || b.day > td || !isMember(b.on)) continue;
+      const amt = Math.floor(+b.amt || 0); if (amt < 1) continue;
+      const per = periodOf(b.type, b.day); if (b.day === per.end) continue;
+      (groups[per.key] ||= { per, list:[] }).list.push({ uid:u, on:b.on, amt, mult:earlyBird(per, b.day), type:b.type, k:b.k });
+    }
+  }
+  const clamp = list => {
+    const tot = {}; for (const b of list) tot[b.uid] = (tot[b.uid]||0) + b.amt;
+    return list.map(b => { const av = Math.max(0, bal[b.uid]||0); return tot[b.uid] > av ? { ...b, amt:Math.floor(b.amt*av/tot[b.uid]) } : b; }).filter(b=>b.amt>0);
+  };
+  const floor = () => { for (const u in bal) if (bal[u] < FLOOR_HB) bal[u] = FLOOR_HB; };
+  for (const g of Object.values(groups).filter(g=>g.per.end < td).sort((a,b)=>a.per.end.localeCompare(b.per.end))) {
+    floor();
+    const list = clamp(g.list), pool = list.reduce((a,b)=>a+b.amt,0), win = winnersOfPeriod(g.per);
+    const W = list.filter(b=>win.has(b.on)).reduce((a,b)=>a+b.amt*b.mult,0);
+    for (const b of list) {
+      const pay = W === 0 ? b.amt : (win.has(b.on) ? Math.round(b.amt*b.mult/W*pool) : 0);
+      bal[b.uid] += pay - b.amt;
+      hist[b.uid].push({ per:g.per, on:b.on, amt:b.amt, pay, refund:W===0 });
+    }
+  }
+  floor();
+  const openG = Object.values(groups).filter(g=>g.per.end >= td);
+  const open = clamp(openG.flatMap(g=>g.list.map(b=>({ ...b, per:g.per }))));
+  const escrow = {}; for (const b of open) escrow[b.uid] = (escrow[b.uid]||0) + b.amt;
+  return { bal, hist, open, avail:u=>Math.max(0,(bal[u]||0)-(escrow[u]||0)) };
+}
+
+/* ---------- chrome ---------- */
+const TABS = [["today","Today"],["moments","Moments"],["quotes","Quotes"],["bets","Bets"],["ranks","Rankings"]];
+function go(tab){ S.tab = tab; try { localStorage.setItem("himmest.tab", tab); } catch {} render(); scrollTo({top:0}); }
+function renderTabs(){
+  const nav = document.getElementById("tabs"); nav.replaceChildren();
+  nav.hidden = !(S.uid && isMember(S.uid));
+  if (nav.hidden) return;
+  for (const [k,l] of TABS) nav.append(h("button",{role:"tab","aria-selected":String(S.tab===k),onclick:()=>go(k)}, icon(k), h("span",null,l)));
+}
+function renderWho(L){
+  const w = document.getElementById("who"); w.replaceChildren();
+  if (S.uid && isMember(S.uid)) w.append(h("button",{class:"mebtn",onclick:()=>go("me"),"aria-label":"My profile"}, avatar(S.uid,"sm"),
+    h("span",{style:"display:flex;flex-direction:column;align-items:flex-start;min-width:0"}, h("span",{class:"nmx"},firstNm(S.uid)), h("span",{class:"hb"},`${L.avail(S.uid).toLocaleString()} HB`))));
+}
+function renderTicker(){
+  const lines = [];
+  for (const q of D.quotes.filter(q=>q.day===D.td).slice(0,6)) lines.push([firstNm(q.about).toUpperCase()+" SAYS", `"${q.text}"`]);
+  const t = D.dv[D.td] || {}; const lead = Object.keys(t).sort((a,b)=>t[b]-t[a])[0];
+  if (lead) lines.push(["LIVE", `${nm(lead)} leads today's race with ${t[lead]} vote${t[lead]===1?"":"s"}`]);
+  for (const p of D.photos.filter(p=>p.day===D.td).slice(0,3)) lines.push(["NEW MOMENT", `${firstNm(p.about)}: ${p.caption || "evidence submitted"}`]);
+  for (const f of FILLER) lines.push(["HIMBO NEWS", f]);
+  const run = document.getElementById("ticker"); run.replaceChildren();
+  for (let i=0;i<2;i++) for (const [a,b] of lines) run.append(h("b",null,a), b);
+}
+function brainMeter(uid){
+  const b = brainCells(uid);
+  return h("div",{class:"brain",title:"Brain cells left this week"}, h("div",{class:"meter"}, h("i",{style:`width:${b}%`})), h("div",{class:"t"}, `🧠 ${b}/100 brain cells`));
+}
+function commentary(){
+  const t = D.dv[D.td] || {}, ids = Object.keys(t).sort((a,b)=>t[b]-t[a]);
+  if (!ids.length) return "The polls are open and the arena is suspiciously quiet. Somebody do something dumb.";
+  const [a, b] = ids;
+  if (b && t[a] === t[b]) return `Dead heat between ${firstNm(a)} and ${firstNm(b)}. Nobody has thought this hard all semester.`;
+  const lines = [
+    `${firstNm(a)} leads with ${t[a]}. Analysts are calling it "deeply earned."`,
+    `${firstNm(a)} is out front with ${t[a]}. Their brain cells have filed a missing persons report.`,
+    `${firstNm(a)} has ${t[a]} and the momentum of a golden retriever chasing a tennis ball.`,
+    `Breaking: ${firstNm(a)} surges to ${t[a]}. Experts baffled. ${firstNm(a)} also baffled.`
+  ];
+  return lines[(dayIndex(D.td) + t[a]) % lines.length];
+}
+
+/* ---------- TODAY ---------- */
+function viewToday(){
+  const td = D.td, t = D.dv[td] || {}, myVote = mine("votes").days?.[td];
+  const ids = members().sort((a,b)=>(t[b]||0)-(t[a]||0) || nm(a).localeCompare(nm(b)));
+  const top = Math.max(0, ...Object.values(t));
+  const hero = h("div",{class:"hero"},
+    h("div",{class:"head",style:"margin:0"}, h("span",{class:"label"}, fmtDay(td)), h("span",{class:"pill live"}, `Polls close in ${fmtDur(secsToMidnight())}`)),
+    h("h1",null,"Who was the Himmest today?"),
+    h("p",{class:"q"}, PROMPTS[dayIndex(td) % PROMPTS.length]),
+    h("div",{class:"commentary"}, h("b",null,"ON AIR"), h("span",null, commentary())));
+
+  const grid = ids.length < 2 ? h("div",{class:"card"}, emptyBox("The arena needs at least two hims.","Send the link to your friends. Once two people have profiles, voting opens.")) :
+    h("div",{class:"voters"}, ids.map(uid => {
+      const n = t[uid]||0, self = uid===S.uid, picked = myVote===uid, p = S.profiles[uid];
+      return h("button",{class:"vcard"+(picked?" picked":""),disabled:self||S.readOnly,"aria-pressed":String(picked),
+          "aria-label":self?`${nm(uid)} (you can't vote for yourself)`:`Vote for ${nm(uid)}, ${n} votes`,onclick:()=>vote(uid)},
+        picked ? h("span",{class:"sticker"},"YOUR PICK") : null,
+        n && n===top ? h("span",{class:"sticker lead"},"LEADING") : null,
+        avatar(uid,"lg"),
+        h("div",{class:"nmv"}, nm(uid), self ? " (you)" : ""),
+        p.nick ? h("div",{class:"small muted"}, `"${p.nick}"`) : null,
+        h("div",{class:"votes"}, n), h("div",{class:"label"}, n===1?"vote":"votes"),
+        brainMeter(uid));
+    }));
+
+  const pics = D.photos.filter(p=>p.day===td);
+  const topPic = pics.slice().sort((a,b)=>(D.rc[b.key]?.total||0)-(D.rc[a.key]?.total||0))[0];
+  const qs = D.quotes.filter(q=>q.day===td);
+  const topQ = qs.slice().sort((a,b)=>(D.qv[b.key]||0)-(D.qv[a.key]||0))[0];
+  const yday = keyOf(dayIndex(td)-1), yW = [...(D.dw[yday]||[])];
+
+  const champ = h("div",{class:"card pink"}, h("div",{class:"label"}, `Yesterday's Himmest · ${fmtDay(yday)}`),
+    yW.length ? yW.map(u=>h("div",{style:"display:flex;align-items:center;gap:12px;margin-top:10px"}, avatar(u,"lg"),
+      h("div",null, h("div",{class:"nm",style:"font-size:1.1rem"}, nm(u)), h("div",{class:"sub"}, titleFor(trophies(u).day))))) :
+    h("p",{class:"muted",style:"margin-top:8px"},"Nobody was crowned yesterday. The throne is cold."));
+
+  const momentCard = h("div",{class:"card"}, h("div",{class:"head"}, h("h3",null,"Today's top moment"), h("button",{class:"btn ghost",onclick:()=>go("moments")},"Snap one")),
+    topPic ? h("div",{style:"display:flex;flex-direction:column;gap:8px"},
+      h("img",{src:topPic.img,alt:topPic.caption||`Photo of ${nm(topPic.about)}`,style:"width:100%;border-radius:10px;border:2px solid var(--ink);max-height:260px;object-fit:cover;cursor:zoom-in",onclick:()=>lightbox(topPic.img,`${nm(topPic.about)}: ${topPic.caption}`)}),
+      h("div",{class:"nm"}, nm(topPic.about)), topPic.caption ? h("div",{class:"sub"}, topPic.caption) : null) :
+    h("p",{class:"muted small"},"No photo evidence yet today. Catch someone mid-himbo and post it."));
+
+  const quoteCard = h("div",{class:"card"}, h("div",{class:"head"}, h("h3",null,"Today's top quote"), h("button",{class:"btn ghost",onclick:()=>go("quotes")},"Add one")),
+    topQ ? h("div",{style:"display:flex;flex-direction:column;gap:16px"}, h("div",{class:"bubble"}, `"${topQ.text}"`), h("div",{class:"byline"}, avatar(topQ.about,"sm"), h("strong",null,nm(topQ.about)))) :
+    h("p",{class:"muted small"},"Nobody has said anything legendary yet. Give it time."));
+
+  return h("div",{class:"stack"}, hero,
+    h("div",{class:"grid"}, h("div",{class:"stack"}, h("div",{class:"head",style:"margin:0"}, h("h2",null,"Cast your vote"), h("span",{class:"small muted"}, myVote ? `You picked ${firstNm(myVote)}. Tap someone else to switch.` : "One vote a day. Tap a card.")), grid),
+      h("div",{class:"stack"}, champ, momentCard, quoteCard)));
+}
+async function vote(uid){
+  const td = D.td, days = { ...(mine("votes").days||{}) };
+  if (days[td] === uid) return;
+  const first = !days[td]; days[td] = uid;
+  const keep = {}; for (const k of Object.keys(days).sort().slice(-400)) keep[k] = days[k];
+  if (await write("votes",{days:keep})) { toast(first ? `Vote locked in for ${firstNm(uid)}. +${ALLOW_HB} HB tomorrow for voting.` : `Switched your vote to ${firstNm(uid)}.`); confetti(); }
+}
+
+/* ---------- MOMENTS ---------- */
+function personPicker(selected, onPick, label){
+  const others = members().filter(u=>u!==S.uid).sort((a,b)=>nm(a).localeCompare(nm(b)));
+  if (!others.length) return h("p",{class:"muted small"},"Nobody else has joined yet.");
+  return h("div",{class:"people",role:"group","aria-label":label}, others.map(u=>h("button",{type:"button",class:"person","aria-pressed":String(selected===u),onclick:()=>onPick(u)}, avatar(u), firstNm(u))));
+}
+function viewMoments(){
+  const dm = draft.moment, td = D.td;
+  const err = h("div",{class:"err",hidden:true});
+  const onFile = async e => {
+    pickUntil = 0; const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
+    toast("Shrinking photo…");
+    try { dm.img = await compress(f,{max:1280,square:false,budget:300000}); render(); }
+    catch(x){ toast(x.message); }
+  };
+  const composer = h("div",{class:"card loud"},
+    h("h2",{style:"margin-bottom:6px"},"Snap the Himmest moment"),
+    h("p",{class:"muted small",style:"margin-bottom:12px"},"Saw something dumb and beautiful? Get it on camera before it's gone."),
+    dm.img ? h("form",{onsubmit:async e=>{
+        e.preventDefault(); err.hidden = true;
+        if (!dm.about) { err.textContent = "Tap who's in the photo."; err.hidden = false; return; }
+        const sb = e.submitter; if (sb) sb.disabled = true;
+        let url; try { url = await uploadImg("photo", dm.img); } catch(x) { err.textContent = x.message; err.hidden = false; if (sb) sb.disabled = false; return; }
+        let items = (mine("photos").items||[]).filter(x=>okImg(x.img));
+        items.push({ k:rid(), about:dm.about, caption:dm.caption.trim().slice(0,140), day:td, ts:Date.now(), img:url });
+        while (items.length > PHOTO_KEEP || (items.length > 1 && JSON.stringify(items).length > PHOTO_DOC_MAX)) items.shift();
+        const who = dm.about;
+        if (await write("photos",{items})) { draft.moment = { img:null, about:"", caption:"" }; toast(`Moment posted. ${firstNm(who)} will never live this down.`); confetti(); render(); }
+      }},
+      h("img",{class:"preview",src:dm.img,alt:"Your photo"}),
+      h("div",{class:"field"}, h("span",{class:"label"},"Who's the him?"), personPicker(dm.about, u=>{ dm.about=u; render(); }, "Who's in the photo")),
+      h("div",{class:"field"}, h("label",{class:"label",for:"m-cap"},"Caption"),
+        h("input",{id:"m-cap",maxlength:"140",value:dm.caption,placeholder:"pushed a pull door for two full minutes",oninput:e=>dm.caption=e.target.value})),
+      err,
+      h("div",{class:"btnrow"}, h("button",{class:"btn pop",type:"submit",disabled:S.readOnly},"Post moment"), h("button",{class:"btn",type:"button",onclick:()=>{ dm.img=null; render(); }},"Retake"))) :
+    h("div",{class:"btnrow"},
+      h("label",{class:"btn huge pop",for:"m-cam"},"📸 Take a photo"),
+      h("label",{class:"btn huge",for:"m-lib"},"Upload"),
+      h("input",{id:"m-cam",class:"vh",type:"file",accept:"image/*",capture:"environment",onclick:picking,onchange:onFile,disabled:S.readOnly}),
+      h("input",{id:"m-lib",class:"vh",type:"file",accept:"image/*",onclick:picking,onchange:onFile,disabled:S.readOnly})),
+    h("p",{class:"small muted",style:"margin-top:10px"},`Anyone in a photo can strike it. You keep your ${PHOTO_KEEP} newest posts.`));
+
+  const todays = D.photos.filter(p=>p.day===td);
+  const best = todays.slice().sort((a,b)=>(D.rc[b.key]?.total||0)-(D.rc[a.key]?.total||0))[0];
+  const spot = best && (D.rc[best.key]?.total||0) > 0 ? h("div",{class:"card pink"},
+    h("div",{class:"head"}, h("h2",null,"Moment of the day"), h("span",{class:"pill live"}, `${D.rc[best.key].total} reactions`)),
+    h("div",{class:"spot"}, h("img",{src:best.img,alt:best.caption||"Moment of the day",onclick:()=>lightbox(best.img,`${nm(best.about)}: ${best.caption}`)}),
+      h("div",{style:"display:flex;flex-direction:column;gap:10px"}, h("div",{style:"display:flex;align-items:center;gap:10px"}, avatar(best.about,"lg"), h("div",{class:"nm",style:"font-size:1.2rem"}, nm(best.about))),
+        best.caption ? h("p",{style:"font-weight:700;font-size:1.1rem"}, best.caption) : null, reactBar(best)))) : null;
+
+  const older = D.photos.filter(p=>p.day!==td).slice(0,24);
+  return h("div",{class:"stack"}, composer, spot,
+    h("div",{class:"head",style:"margin:8px 0 0"}, h("h2",null,"Today's moments"), h("span",{class:"label"}, `${todays.length} posted`)),
+    todays.length ? h("div",{class:"feed"}, todays.map(momentCard)) : h("div",{class:"card"}, emptyBox("No moments yet today.","Be the first paparazzo.")),
+    older.length ? [h("h2",{style:"margin-top:8px"},"Earlier"), h("div",{class:"feed"}, older.map(momentCard))] : null);
+}
+function reactBar(p){
+  const r = D.rc[p.key] || {}, mineR = mine("reacts").map?.[p.key], self = p.about === S.uid;
+  return h("div",{class:"reacts"}, Object.entries(REACTS).map(([k,[e,label]]) =>
+    h("button",{class:"react","aria-pressed":String(mineR===k),disabled:self||S.readOnly,title:self?"You can't react to your own moment":label,"aria-label":`${label}: ${r[k]||0}`,onclick:()=>react(p,k)}, e, h("span",{class:"mono small"}, r[k]||0))));
+}
+function momentCard(p){
+  const isMine = p.author===S.uid, aboutMe = p.about===S.uid;
+  return h("div",{class:"moment"},
+    h("button",{class:"pic",type:"button","aria-label":`Open photo of ${nm(p.about)}`,onclick:()=>lightbox(p.img, p.caption ? `${nm(p.about)}: ${p.caption}` : nm(p.about))}, h("img",{src:p.img,alt:p.caption||`Photo of ${nm(p.about)}`,loading:"lazy"})),
+    h("div",{class:"byline"}, avatar(p.about,"sm"), h("strong",null,nm(p.about)), h("span",{class:"sp"}), h("span",null, p.day===D.td ? "today" : fmtDay(p.day))),
+    p.caption ? h("div",{class:"cap"}, p.caption) : null,
+    reactBar(p),
+    h("div",{class:"byline"}, h("span",null,`snapped by ${firstNm(p.author)}`), h("span",{class:"sp"}),
+      isMine ? h("button",{class:"btn ghost",disabled:S.readOnly,onclick:()=>deletePhoto(p)},"Delete") : null,
+      aboutMe && !isMine ? h("button",{class:"btn ghost",disabled:S.readOnly,onclick:()=>veto(p.key,"Moment struck from the record.")},"Strike it") : null));
+}
+async function react(p, type){
+  const map = { ...(mine("reacts").map||{}) };
+  if (map[p.key] === type) delete map[p.key]; else map[p.key] = type;
+  const keys = Object.keys(map); if (keys.length > 400) for (const k of keys.slice(0, keys.length-400)) delete map[k];
+  await write("reacts",{map});
+}
+async function deletePhoto(p){ const items = (mine("photos").items||[]).filter(x=>x.k!==p.k); if (await write("photos",{items})) toast("Moment deleted."); }
+async function veto(key, msg){ const keys = [...(mine("vetoes").keys||[]), key].slice(-500); if (await write("vetoes",{keys})) toast(msg); }
+
+/* ---------- QUOTES ---------- */
+function viewQuotes(){
+  const dq = draft.quote, td = D.td, myQv = mine("qvotes").days?.[td];
+  const err = h("div",{class:"err",hidden:true});
+  const composer = h("div",{class:"card loud"},
+    h("h2",{style:"margin-bottom:12px"},"Him quote of the day"),
+    h("form",{onsubmit:async e=>{
+      e.preventDefault(); err.hidden = true;
+      const text = dq.text.trim().replace(/^["“]+|["”]+$/g,"");
+      if (!dq.about) { err.textContent = "Tap who said it."; err.hidden = false; return; }
+      if (text.length < 3) { err.textContent = "That's too short. Even a himbo says more than that."; err.hidden = false; return; }
+      const items = (mine("quotes").items||[]).slice(-149);
+      items.push({ k:rid(), about:dq.about, text:text.slice(0,240), day:td, ts:Date.now() });
+      const who = dq.about;
+      if (await write("quotes",{items})) { draft.quote = { about:"", text:"" }; toast(`Quote logged. ${firstNm(who)} is now on the record.`); confetti(); render(); }
+    }},
+      h("div",{class:"field"}, h("span",{class:"label"},"Who said it?"), personPicker(dq.about, u=>{ dq.about=u; render(); }, "Who said it")),
+      h("div",{class:"field"}, h("label",{class:"label",for:"q-text"},"What they said, word for word"),
+        h("textarea",{id:"q-text",maxlength:"240",value:dq.text,placeholder:"If plants are so smart why don't they just walk to the sun",oninput:e=>dq.text=e.target.value})),
+      err, h("button",{class:"btn primary",type:"submit",disabled:S.readOnly},"Put it on the record"),
+      h("p",{class:"small muted"},"Funny, not cruel. Anyone you quote can strike it.")));
+
+  const todays = D.quotes.filter(q=>q.day===td).sort((a,b)=>(D.qv[b.key]||0)-(D.qv[a.key]||0) || (b.ts||0)-(a.ts||0));
+  const lead = todays[0] && (D.qv[todays[0].key]||0) > 0 ? todays[0] : null;
+  const spot = lead ? h("div",{class:"card pink"}, h("div",{class:"head"}, h("span",{class:"label"},"Leading for quote of the day"), h("span",{class:"pill live"},`${fmtDur(secsToMidnight())} left`)),
+    h("div",{class:"bubble gold"}, `"${lead.text}"`), h("div",{class:"byline",style:"margin-top:18px"}, avatar(lead.about), h("strong",{style:"font-size:1.05rem"}, nm(lead.about)), h("span",null,`· ${D.qv[lead.key]} vote${D.qv[lead.key]===1?"":"s"}`))) : null;
+
+  const list = h("div",{class:"card"}, h("div",{class:"head"}, h("h2",null,"Today's quotes"), h("span",{class:"small muted"}, "One vote a day")),
+    todays.length ? todays.map(q=>quoteItem(q, myQv)) : emptyBox("No quotes yet today.","Heard something legendary? Log it."));
+
+  const past = [...new Set(D.quotes.map(q=>q.day))].filter(d=>d<td).sort().reverse().slice(0,10).map(d=>{
+    const dq2 = D.quotes.filter(q=>q.day===d).sort((a,b)=>(D.qv[b.key]||0)-(D.qv[a.key]||0)); return { d, q:dq2[0] };
+  }).filter(x=>x.q && (D.qv[x.q.key]||0) > 0);
+  const archive = h("div",{class:"card"}, h("h3",{style:"margin-bottom:6px"},"Hall of quotes"),
+    past.length ? past.map(({d,q})=>h("div",{class:"qitem"}, h("span",{class:"label"}, fmtDay(d)), h("div",{class:"bubble"}, `"${q.text}"`), h("div",{class:"byline"}, avatar(q.about,"sm"), h("strong",null,nm(q.about))))) :
+    h("p",{class:"muted small"},"Winning quotes are enshrined here at midnight."));
+
+  return h("div",{class:"grid"}, h("div",{class:"stack"}, spot, list, archive), h("div",{class:"stack"}, composer));
+}
+function quoteItem(q, myQv){
+  const n = D.qv[q.key]||0, picked = myQv===q.key, isMine = q.author===S.uid, aboutMe = q.about===S.uid;
+  return h("div",{class:"qitem"}, h("div",{class:"bubble"}, `"${q.text}"`),
+    h("div",{class:"byline"}, avatar(q.about,"sm"), h("strong",null,nm(q.about)), h("span",null,`logged by ${firstNm(q.author)}`), h("span",{class:"sp"}),
+      h("span",{class:"mono"}, `${n} vote${n===1?"":"s"}`),
+      isMine ? h("button",{class:"btn ghost",disabled:S.readOnly,onclick:()=>deleteQuote(q)},"Delete") : null,
+      aboutMe && !isMine ? h("button",{class:"btn ghost",disabled:S.readOnly,onclick:()=>veto(q.key,"Quote struck from the record.")},"Strike it") : null,
+      isMine || aboutMe ? null : h("button",{class:"btn"+(picked?" hi":""),disabled:S.readOnly,onclick:()=>voteQuote(q)}, picked ? "Your pick" : "Vote")));
+}
+async function voteQuote(q){
+  const days = { ...(mine("qvotes").days||{}) }; days[D.td] = q.key;
+  const keep = {}; for (const k of Object.keys(days).sort().slice(-400)) keep[k] = days[k];
+  if (await write("qvotes",{days:keep})) toast("Quote vote counted.");
+}
+async function deleteQuote(q){ const items = (mine("quotes").items||[]).filter(x=>x.k!==q.k); if (await write("quotes",{items})) toast("Quote deleted."); }
+
+/* ---------- BETS ---------- */
+function viewBets(L){
+  const avail = L.avail(S.uid);
+  const wallet = h("div",{class:"wallet"},
+    h("div",null, h("div",{class:"label",style:"color:inherit;opacity:.7"},"Your wallet"), h("div",{class:"big mono"}, avail.toLocaleString(), h("span",{style:"font-size:1rem"}," HB"))),
+    h("p",{class:"small",style:"max-width:46ch"}, `Start with ${START_HB} Himbucks. Earn ${ALLOW_HB} HB for every day you vote. Go broke and the Himbo Stimulus tops you up to ${FLOOR_HB}. Worth exactly nothing.`));
+  const cards = ["week","month","year"].map(type => futureCard(type, L, avail));
+  const myOpen = L.open.filter(b=>b.uid===S.uid);
+  const hist = (L.hist[S.uid]||[]).slice().reverse().slice(0,15);
+  const slip = h("div",{class:"card"}, h("h3",{style:"margin-bottom:10px"},"Your bet slip"),
+    myOpen.length ? h("div",{class:"stack",style:"gap:8px"}, myOpen.map(b=>h("div",{class:"slip"}, h("span",null,`${b.amt} HB · ${firstNm(b.on)} for ${PERIODS[b.type]}`), h("span",null,`×${b.mult.toFixed(2)} early bird`)))) : h("p",{class:"muted small"},"No open bets. The bookie is lonely."),
+    hist.length ? [h("div",{class:"label",style:"margin-top:14px"},"Settled"), hist.map(r=>h("div",{class:"stat"},
+      h("span",{class:"small"}, `${PERIODS[r.per.type]} · ${periodName(r.per)} · ${r.amt} on ${firstNm(r.on)}`),
+      h("span",{class:"mono "+(r.refund?"muted":r.pay>r.amt?"won":"lost")}, r.refund?"refund":r.pay>0?`+${r.pay-r.amt}`:`−${r.amt}`)))] : null);
+  const how = h("div",{class:"card"}, h("h3",{style:"margin-bottom:8px"},"How it works"),
+    h("p",{class:"small"}, "Bet on who will score the most Him Points this week, this month, or this year. Everyone who backed the winner splits the whole pot. Bet early for a bigger share: a bet on the first day counts almost double, and the bonus shrinks every day. Betting closes when the final day starts. If nobody backed the winner, everyone gets their money back."),
+    h("p",{class:"small muted",style:"margin-top:8px"}, `Him Points: +${PTS_VOTE} per daily vote, +${PTS_CROWN} for winning a day, +${PTS_QUOTE} per vote on a quote you said, +${PTS_REACT} per reaction on a moment of you.`));
+  return h("div",{class:"stack"}, wallet, h("div",{class:"grid3"}, cards), h("div",{class:"grid"}, slip, how));
+}
+function futureCard(type, L, avail){
+  const td = D.td, per = periodOf(type, td), bd = draft.bets[type];
+  const closed = td === per.end, mult = earlyBird(per, td);
+  const open = L.open.filter(b=>b.per.key===per.key), pool = open.reduce((a,b)=>a+b.amt,0);
+  const on = {}; for (const b of open) on[b.on] = (on[b.on]||0) + b.amt;
+  const st = standings(per.start, per.end).slice(0,5);
+  const err = h("div",{class:"err",hidden:true});
+  const amt = h("input",{id:`b-${type}`,type:"number",min:"1",step:"1",inputmode:"numeric",placeholder:"HB",value:bd.amt,oninput:e=>bd.amt=e.target.value});
+  return h("div",{class:"card loud"},
+    h("div",{class:"label"}, periodName(per)),
+    h("h2",{style:"margin:4px 0 8px"}, PERIODS[type]),
+    h("div",{class:"btnrow",style:"gap:6px;margin-bottom:10px"},
+      h("span",{class:"pill "+(closed?"closed":"live")}, closed ? "Betting closed" : `Closes in ${fmtDur(betCloseSecs(per, td))}`),
+      h("span",{class:"pill"}, `Pool ${pool.toLocaleString()} HB`),
+      closed ? null : h("span",{class:"pill"}, `Early bird ×${mult.toFixed(2)}`)),
+    st.some(s=>s.pts>0) ? st.map((s,i)=>h("div",{class:"row"},
+      h("div",{class:"rank"+(i===0?" gold":"")}, i+1), avatar(s.uid,"sm"),
+      h("div",{style:"min-width:0"}, h("div",{class:"nm"}, nm(s.uid)), h("div",{class:"sub"}, on[s.uid] ? `${on[s.uid]} HB backing · pays ~${(pool/on[s.uid]).toFixed(1)}×` : "No money on them yet")),
+      h("div",{class:"pts"}, `${s.pts} pts`))) : h("p",{class:"muted small"},"No points scored yet. Pure speculation. The best kind."),
+    closed ? null : h("form",{style:"margin-top:12px",onsubmit:async e=>{
+      e.preventDefault(); err.hidden = true;
+      const a = Math.floor(+bd.amt);
+      if (today() === per.end) { err.textContent = "Betting just closed."; err.hidden = false; return; }
+      if (!bd.on) { err.textContent = "Pick who you're backing."; err.hidden = false; return; }
+      if (!(a >= 1)) { err.textContent = "Bet at least 1 HB."; err.hidden = false; return; }
+      if (a > avail) { err.textContent = `You only have ${avail} HB.`; err.hidden = false; return; }
+      const items = (mine("bets").items||[]).filter(x=>x && x.type).slice(-299);
+      items.push({ k:rid(), type, day:td, on:bd.on, amt:a, ts:Date.now() });
+      const who = bd.on;
+      if (await write("bets",{items})) { draft.bets[type] = { on:"", amt:"" }; toast(`${a} HB on ${firstNm(who)} for ${PERIODS[type]}. Bold.`); confetti(); render(); }
+    }},
+      h("div",{class:"field"}, h("label",{class:"label",for:`bo-${type}`},"Back a him"),
+        h("select",{id:`bo-${type}`,onchange:e=>bd.on=e.target.value}, h("option",{value:""},"Choose…"),
+          members().sort((a,b)=>nm(a).localeCompare(nm(b))).map(u=>h("option",{value:u,selected:bd.on===u}, u===S.uid ? `${nm(u)} (yourself, brave)` : nm(u))))),
+      h("div",{class:"field"}, h("label",{class:"label",for:`b-${type}`},"Stake"), amt),
+      h("div",{class:"chips"}, [25,100,250].map(v=>h("button",{type:"button",class:"chip",onclick:()=>{ bd.amt = String(Math.min(v,avail)); amt.value = bd.amt; }}, v)),
+        h("button",{type:"button",class:"chip",onclick:()=>{ bd.amt = String(avail); amt.value = bd.amt; }},"All in")),
+      err, h("button",{class:"btn primary",type:"submit",disabled:S.readOnly||avail<1},"Place bet")));
+}
+
+/* ---------- RANKINGS ---------- */
+function viewRanks(){
+  const td = D.td, rt = S.rankTab;
+  const per = rt === "day" ? { start:td, end:td } : periodOf(rt, td);
+  const st = standings(per.start, per.end);
+  const seg = h("div",{class:"seg",role:"group","aria-label":"Time range"}, [["day","Today"],["week","Week"],["month","Month"],["year","Year"]].map(([k,l])=>
+    h("button",{"aria-pressed":String(rt===k),onclick:()=>{ S.rankTab=k; render(); }}, l)));
+  const board = h("div",{class:"card loud"}, seg,
+    h("div",{class:"head"}, h("h2",null, rt==="day" ? "Today's standings" : `${PERIODS[rt]} race`), h("span",{class:"label"}, rt==="day" ? fmtDay(td) : periodName(per))),
+    st.length ? st.map((s,i)=>h("div",{class:"row"},
+      h("div",{class:"rank"+(i===0&&s.pts?" gold":"")}, s.pts ? i+1 : "–"), avatar(s.uid),
+      h("div",{style:"min-width:0"}, h("div",{class:"nm"}, nm(s.uid), s.uid===S.uid ? h("span",{class:"sub"}," (you)") : null), h("div",{class:"sub"}, titleFor(trophies(s.uid).day))),
+      h("div",{class:"pts"}, `${s.pts} pts`))) : emptyBox("Nobody here yet.","Send the link to your friends."));
+
+  const cabinet = h("div",{class:"card pink"}, h("h3",{style:"margin-bottom:8px"},"Trophy cabinet"),
+    ["year","month","week"].map(type => {
+      const w = pastWinners(type).slice(0, type==="week"?6:4);
+      return h("div",{style:"margin-bottom:10px"}, h("div",{class:"label"}, PERIODS[type]),
+        w.length ? w.map(x=>h("div",{class:"stat"}, h("span",{class:"small"}, periodName(x.per)), h("strong",{class:"small"}, x.winners.map(nm).join(" & ")))) : h("p",{class:"muted small"},"Not awarded yet."));
+    }));
+  const ladder = h("div",{class:"card"}, h("h3",{style:"margin-bottom:6px"},"Title ladder"), h("p",{class:"small muted",style:"margin-bottom:6px"},"Earned by winning daily crowns"),
+    TITLES.map(([n,s])=>h("div",{class:"stat"}, h("span",null,s), h("span",{class:"mono muted"}, `${n}+`))));
+  const points = h("div",{class:"card"}, h("h3",{style:"margin-bottom:6px"},"How Him Points work"),
+    [[`+${PTS_VOTE}`,"each daily vote you get"],[`+${PTS_CROWN}`,"winning the day"],[`+${PTS_QUOTE}`,"each vote on a quote you said"],[`+${PTS_REACT}`,"each reaction on a moment of you"]].map(([a,b])=>h("div",{class:"stat"}, h("span",null,b), h("span",{class:"mono"},a))));
+  return h("div",{class:"grid"}, h("div",{class:"stack"}, board, points), h("div",{class:"stack"}, cabinet, ladder));
+}
+
+/* ---------- PROFILE ---------- */
+function profileForm(existing){
+  const p = existing || {};
+  const err = h("div",{class:"err",hidden:true});
+  let photo = okImg(p.photo) ? p.photo : null;
+  const pv = h("div",{class:"av xl","aria-hidden":"true",style:"background:var(--line);color:var(--muted)"}, photo ? h("img",{src:photo,alt:""}) : "?");
+  const rm = h("button",{type:"button",class:"btn ghost",hidden:!photo,onclick:()=>{ photo=null; pv.replaceChildren("?"); rm.hidden=true; }},"Remove");
+  const onPic = async e => {
+    pickUntil = 0; const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return; err.hidden = true;
+    try { photo = await compress(f,{max:360,square:true,budget:60000}); pv.replaceChildren(h("img",{src:photo,alt:""})); rm.hidden=false; }
+    catch(x){ err.textContent = x.message; err.hidden = false; }
+  };
+  const first = h("input",{id:"p-first",value:p.first||"",placeholder:"First name",autocomplete:"given-name",maxlength:"30"});
+  const last = h("input",{id:"p-last",value:p.last||"",placeholder:"Last name",autocomplete:"family-name",maxlength:"30"});
+  const nick = h("input",{id:"p-nick",value:p.nick||"",placeholder:"The Protein Prophet",maxlength:"40"});
+  const arch = h("select",{id:"p-arch"}, ARCHETYPES.map(a=>h("option",{value:a,selected:a===p.archetype},a)));
+  if (!existing && !first.value) {
+    const parts = (S.email||"").split("@")[0].split(/[._-]+/).filter(Boolean);
+    if (parts.length >= 2) { first.value = cap1(parts[0]); last.value = cap1(parts[parts.length-1]); }
+  }
+  return h("form",{onsubmit:async e=>{
+    e.preventDefault(); err.hidden = true;
+    const f = first.value.trim(), l = last.value.trim();
+    if (!f) { err.textContent = "Add at least your first name."; err.hidden = false; return; }
+    const body = { first:cap1(f).slice(0,30), last:cap1(l).slice(0,30), nick:nick.value.trim().slice(0,40), archetype:arch.value, joined:p.joined||today() };
+    if (photo && photo.startsWith("data:")) {
+      try { photo = await uploadImg("avatar", photo); } catch(x) { err.textContent = x.message; err.hidden = false; return; }
+    }
+    if (photo) body.photo = photo;
+    if (await write("profiles", body)) { toast(existing ? "Profile saved." : `Welcome to the arena, ${body.first}.`); if (!existing) { confetti(); S.tab = "today"; } render(); }
+  }},
+    h("div",{style:"display:flex;align-items:center;gap:14px;flex-wrap:wrap"}, pv,
+      h("div",{class:"btnrow",style:"gap:8px"},
+        h("label",{class:"btn pop",for:"p-cam"},"📸 Selfie"), h("label",{class:"btn",for:"p-lib"},"Upload"), rm,
+        h("input",{id:"p-cam",class:"vh",type:"file",accept:"image/*",capture:"user",onclick:picking,onchange:onPic}),
+        h("input",{id:"p-lib",class:"vh",type:"file",accept:"image/*",onclick:picking,onchange:onPic}))),
+    h("div",{class:"two"}, h("div",{class:"field"}, h("label",{class:"label",for:"p-first"},"First name"), first), h("div",{class:"field"}, h("label",{class:"label",for:"p-last"},"Last name"), last)),
+    h("div",{class:"field"}, h("label",{class:"label",for:"p-nick"},"Him name (optional)"), nick),
+    h("div",{class:"field"}, h("label",{class:"label",for:"p-arch"},"Himbo archetype"), arch),
+    err, h("button",{class:"btn primary",type:"submit",disabled:S.readOnly}, existing ? "Save profile" : "Enter the arena"));
+}
+function viewMe(L){
+  const p = S.profiles[S.uid], tr = trophies(S.uid), wk = periodOf("week", D.td);
+  const myWeek = standings(wk.start, wk.end).find(s=>s.uid===S.uid)?.pts || 0;
+  const card = h("div",{class:"card loud"},
+    h("div",{style:"display:flex;align-items:center;gap:14px"}, avatar(S.uid,"xl"),
+      h("div",{style:"min-width:0"}, h("h2",null, nm(S.uid)), p.nick ? h("div",{style:"font-weight:700"}, `"${p.nick}"`) : null, h("div",{class:"sub"}, p.archetype))),
+    h("div",{style:"margin-block:14px"}, brainMeter(S.uid)),
+    h("div",{class:"trophies"}, [["day","Days"],["week","Weeks"],["month","Months"],["year","Years"]].map(([k,l])=>h("div",null, h("div",{class:"big"}, tr[k]), h("div",{class:"label"}, l)))),
+    h("div",{style:"margin-top:12px"},
+      h("div",{class:"stat"}, h("span",null,"Title"), h("strong",null, titleFor(tr.day))),
+      h("div",{class:"stat"}, h("span",null,"Him Points this week"), h("span",{class:"mono"}, myWeek)),
+      h("div",{class:"stat"}, h("span",null,"Times quoted"), h("span",{class:"mono"}, D.quotes.filter(q=>q.about===S.uid).length)),
+      h("div",{class:"stat"}, h("span",null,"Moments of you"), h("span",{class:"mono"}, D.photos.filter(x=>x.about===S.uid).length)),
+      h("div",{class:"stat"}, h("span",null,"Himbucks"), h("span",{class:"mono"}, (L.bal[S.uid]||0).toLocaleString())),
+      h("div",{class:"stat"}, h("span",null,"Member since"), h("span",{class:"mono"}, fmtDay(p.joined||D.td)))));
+  const account = h("div",{class:"card"}, h("h3",{style:"margin-bottom:8px"},"Account"),
+    h("div",{class:"stat"}, h("span",null,"Logged in as"), h("span",{class:"mono small",style:"overflow-wrap:anywhere"}, S.email)),
+    h("div",{class:"btnrow",style:"margin-top:10px"}, h("button",{class:"btn",onclick:logout},"Log out")));
+  return h("div",{class:"grid"}, h("div",{class:"stack"}, card, account), h("div",{class:"stack"}, h("div",{class:"card"}, h("h2",{style:"margin-bottom:12px"},"Edit profile"), profileForm(p))));
+}
+
+/* ---------- render ---------- */
+const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+let installHidden = false; try { installHidden = localStorage.getItem("himmest.install") === "no"; } catch {}
+function installBanner(){
+  if (!isIOS || standalone || installHidden) return null;
+  return h("div",{class:"install"},
+    h("div",{style:"flex:1"}, h("b",null,"Put the Himmest on your iPhone"),
+      h("p",{class:"small",style:"margin-top:4px"},"In Safari, tap the Share button (the square with an arrow), then Add to Home Screen. It opens full screen like a real app.")),
+    h("button",{class:"btn ghost",style:"border-color:var(--hi-ink);color:var(--hi-ink)","aria-label":"Hide this tip",onclick:()=>{ installHidden=true; try{localStorage.setItem("himmest.install","no")}catch{} render(); }},"Hide"));
+}
+function viewAuth(){
+  let mode = "signup";
+  const err = h("div",{class:"err",hidden:true});
+  const email = h("input",{id:"a-email",type:"email",placeholder:"you@example.com",autocomplete:"email",inputmode:"email",autocapitalize:"off"});
+  const pw = h("input",{id:"a-pw",type:"password",placeholder:"At least 6 characters",autocomplete:"new-password"});
+  const btn = h("button",{class:"btn primary huge",type:"submit"},"Join the arena");
+  const tabs = h("div",{class:"authtabs",role:"group","aria-label":"Sign up or log in"});
+  const setMode = m => {
+    mode = m;
+    tabs.replaceChildren(
+      h("button",{type:"button","aria-pressed":String(m==="signup"),onclick:()=>setMode("signup")},"Sign up"),
+      h("button",{type:"button","aria-pressed":String(m==="login"),onclick:()=>setMode("login")},"Log in"));
+    btn.textContent = m === "signup" ? "Join the arena" : "Log in";
+    pw.setAttribute("autocomplete", m === "signup" ? "new-password" : "current-password");
+    err.hidden = true;
+  };
+  setMode("signup");
+  return h("div",{class:"gate stack"}, installBanner(), h("div",{class:"card loud"},
+    h("h2",{style:"margin-bottom:6px"},"Who's the Himmest?"),
+    h("p",{class:"muted",style:"margin-bottom:14px"},"Vote every day, snap the dumbest moments, log the best quotes and bet on the Him of the Week. Any email works."),
+    tabs,
+    h("form",{onsubmit:async e=>{
+      e.preventDefault(); err.hidden = true; btn.disabled = true;
+      try {
+        await api("/api/auth",{ method:"POST", body:JSON.stringify({ action:mode, email:email.value, password:pw.value }) });
+        const wasSignup = mode === "signup";
+        await load(true);
+        if (wasSignup) confetti();
+      } catch(x) { err.textContent = x.message; err.hidden = false; }
+      btn.disabled = false;
+    }},
+      h("div",{class:"field"}, h("label",{class:"label",for:"a-email"},"Email"), email),
+      h("div",{class:"field"}, h("label",{class:"label",for:"a-pw"},"Password"), pw),
+      err, btn)));
+}
+async function logout(){
+  try { await api("/api/logout",{ method:"POST" }); } catch {}
+  authed = false; S.uid = null; S.email = ""; V = ""; S.loaded = new Set(); render();
+}
+function render(){
+  const main = document.getElementById("main");
+  if (authed === false) {
+    document.getElementById("tabs").hidden = true;
+    document.getElementById("who").replaceChildren();
+    D = { td:today(), quotes:[], photos:[], dv:{} }; renderTicker();
+    main.replaceChildren(viewAuth());
+    return;
+  }
+  if (authed === null || COLS.some(c=>!S.loaded.has(c))) {
+    document.getElementById("tabs").hidden = true;
+    main.replaceChildren(loadErr ?
+      h("div",{class:"card loud gate"}, h("h2",{style:"margin-bottom:8px"},"Can't reach the arena"), h("p",{class:"muted",style:"margin-bottom:12px"}, loadErr), h("button",{class:"btn primary",onclick:()=>load(true)},"Try again")) :
+      h("div",{class:"card empty"}, h("strong",null,"Warming up the jumbotron…"),"Loading today's race."));
+    return;
+  }
+  D = derive(); const L = ledger();
+  renderTicker(); renderTabs(); renderWho(L);
+  let v;
+  if (!isMember(S.uid)) v = h("div",{class:"gate stack"}, installBanner(), h("div",{class:"card loud"},
+      h("h2",{style:"margin-bottom:6px"},"Make your profile"),
+      h("p",{class:"muted",style:"margin-bottom:14px"},"Add your name and a picture so people can vote for you, quote you, snap your finest moments and bet on you."),
+      profileForm(null)));
+  else v = h("div",{class:"stack"}, installBanner(), ({ today:viewToday, moments:viewMoments, quotes:viewQuotes, bets:viewBets, ranks:viewRanks, me:viewMe }[S.tab] || viewToday)(L));
+  main.replaceChildren(v);
+}
+function typing(){ const a = document.activeElement; return a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.type !== "file" && document.getElementById("main").contains(a); }
+let deferred = false, pickUntil = 0, pickT, loadErr = "", loading = false;
+function scheduleRender(){
+  if (Date.now() < pickUntil) { clearTimeout(pickT); pickT = setTimeout(scheduleRender, 3000); return; }
+  if (typing()) { if (!deferred) { deferred = true; document.activeElement.addEventListener("blur", ()=>{ deferred = false; setTimeout(render,0); }, { once:true }); } return; }
+  render();
+}
+async function load(force){
+  if (loading && !force) return;
+  loading = true;
+  try {
+    const j = await api(`/api/state?v=${force ? "" : encodeURIComponent(V)}`);
+    loadErr = ""; const was = authed; authed = true; S.uid = j.me.id; S.email = j.me.email;
+    if (!j.same) { V = j.v; for (const c of COLS) S[c] = j.cols[c] || {}; COLS.forEach(c=>S.loaded.add(c)); scheduleRender(); }
+    else if (was !== true) scheduleRender();
+  } catch(e) {
+    if (e.status === 401) { if (authed !== false) { authed = false; render(); } }
+    else if (authed !== true) { loadErr = e.message; render(); }
+  } finally { loading = false; }
+}
+function start(){
+  render();
+  load(true);
+  setInterval(() => { if (authed && document.visibilityState === "visible") load(false); }, 8000);
+  setInterval(() => { if (authed && Date.now() >= pickUntil && !typing() && !document.querySelector(".lightbox")) render(); }, 30000);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && authed) load(false); });
+}
+start();
+})();
+</script>
+</body>
+</html>
