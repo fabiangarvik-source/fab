@@ -1,4 +1,5 @@
 import { sql, wrap, requireUser, httpError, COLS, imgKeys } from "./_lib.js";
+import { notifyChanges } from "./_push.js";
 
 /* Each person can only write their own document in each collection. */
 export default wrap(async (req, res) => {
@@ -8,7 +9,8 @@ export default wrap(async (req, res) => {
   if (!COLS.includes(col)) throw httpError(400, "Unknown collection.");
   if (!data || typeof data !== "object" || Array.isArray(data)) throw httpError(400, "Data must be an object.");
   const json = JSON.stringify(data);
-  if (json.length > 200000) throw httpError(413, "That's too much data in one go.");
+  if (json.length > 400000) throw httpError(413, "That's too much data in one go.");
+  const before = await sql`SELECT data FROM docs WHERE uid = ${me.id} AND col = ${col}`;
   await sql`INSERT INTO docs (uid, col, data, updated_at) VALUES (${me.id}, ${col}, ${json}::jsonb, now())
             ON CONFLICT (uid, col) DO UPDATE SET data = EXCLUDED.data, updated_at = now()`;
   // Drop pictures that this person's documents no longer point to.
@@ -17,5 +19,6 @@ export default wrap(async (req, res) => {
     const keep = imgKeys(data);
     await sql`DELETE FROM imgs WHERE uid = ${me.id} AND kind = ${kind} AND created_at < now() - interval '10 minutes' AND NOT (k = ANY(${keep}))`;
   }
+  try { await notifyChanges(me.id, col, before[0]?.data, data); } catch (e) { console.error("push", e); }
   res.status(200).json({ ok: true });
 });

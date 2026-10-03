@@ -21,7 +21,7 @@ export default wrap(async (req, res) => {
     if (typeof data !== "string" || !DATA_URL.test(data)) throw httpError(400, "Send a JPEG picture.");
     if (data.length > 400000) throw httpError(413, "That picture is too big.");
     const [{ n }] = await sql`SELECT count(*)::int AS n FROM imgs WHERE uid = ${me.id}`;
-    if (n >= 60) throw httpError(429, "You have too many pictures. Delete some old moments first.");
+    if (n >= 2000) throw httpError(429, "You have too many pictures. Delete some old moments first.");
     const k = (kind === "photo" ? "p_" : "a_") + newId("").slice(0, 16);
     await sql`INSERT INTO imgs (k, uid, kind, data) VALUES (${k}, ${me.id}, ${kind}, ${data})`;
     return res.status(200).json({ url: `/api/img?k=${k}` });

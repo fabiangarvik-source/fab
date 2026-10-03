@@ -7,7 +7,7 @@ const SECRET = process.env.SESSION_SECRET || "";
 const COOKIE = "hm_s";
 const MAX_AGE = 60 * 60 * 24 * 180;
 
-export const COLS = ["profiles", "votes", "quotes", "qvotes", "vetoes", "bets", "photos", "reacts"];
+export const COLS = ["profiles", "votes", "quotes", "qvotes", "vetoes", "bets", "photos", "reacts", "noms", "appeals", "verdicts", "comments", "reign"];
 
 let ready = null;
 export function init() {
@@ -17,6 +17,9 @@ export function init() {
     await sql`CREATE TABLE IF NOT EXISTS users (id text PRIMARY KEY, email text UNIQUE NOT NULL, pass text NOT NULL, created_at timestamptz NOT NULL DEFAULT now())`;
     await sql`CREATE TABLE IF NOT EXISTS docs (uid text NOT NULL, col text NOT NULL, data jsonb NOT NULL, updated_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (uid, col))`;
     await sql`CREATE TABLE IF NOT EXISTS imgs (k text PRIMARY KEY, uid text NOT NULL, kind text NOT NULL, data text NOT NULL, created_at timestamptz NOT NULL DEFAULT now())`;
+    await sql`CREATE TABLE IF NOT EXISTS roasts (k text PRIMARY KEY, text text NOT NULL, ai boolean NOT NULL DEFAULT false, uid text, created_at timestamptz NOT NULL DEFAULT now())`;
+    await sql`CREATE TABLE IF NOT EXISTS push_subs (endpoint text PRIMARY KEY, uid text NOT NULL, sub jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now())`;
+    await sql`CREATE TABLE IF NOT EXISTS sent (k text PRIMARY KEY, created_at timestamptz NOT NULL DEFAULT now())`;
   })().catch((e) => { ready = null; throw e; });
   return ready;
 }
@@ -81,4 +84,11 @@ export function imgKeys(value) {
   const out = new Set();
   JSON.stringify(value ?? null).replace(/\/api\/img\?k=([A-Za-z0-9_-]+)/g, (_, k) => out.add(k));
   return [...out];
+}
+
+/* Today's date in the arena's time zone (Eastern), as YYYY-MM-DD. */
+export function etDay(d = new Date()) {
+  const p = {};
+  for (const x of new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(d)) p[x.type] = x.value;
+  return `${p.year}-${p.month}-${p.day}`;
 }
