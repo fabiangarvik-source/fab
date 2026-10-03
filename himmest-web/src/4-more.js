@@ -85,17 +85,18 @@ function weekRecap(per, L){
   const nomCount = {}; for (const n of D.noms) if (inWeek(n.day)) nomCount[n.about] = (nomCount[n.about]||0) + 1;
   const mostNom = Object.keys(nomCount).sort((a,b)=>nomCount[b]-nomCount[a])[0];
   let acq = 0; for (const [d, m] of Object.entries(D.appeals)) if (inWeek(d)) for (const u of Object.keys(m)) if (D.acquitted(d,u)) acq++;
-  const law = reignFor(per).law, broke = done ? L.brokest(per.key) : null;
+  const law = reignFor(per).law, broke = done ? L.brokest(per) : null, win = winnerOf(per);
   const row = (ic, label, val) => h("div",{class:"rrow"}, h("div",{class:"ic","aria-hidden":"true"}, ic), h("div",{style:"min-width:0"}, h("div",{class:"label"},label), val));
   const empty = !st.some(s=>s.pts) && !q && !p && !mostNom;
   return h("div",{class:"card "+(done?"loud":"")+" recap"},
     h("div",{class:"head",style:"margin:0"}, h("h3",null, periodName(per)), h("span",{class:"pill "+(done?"":"live")}, done ? "Final" : "In progress")),
     empty ? h("p",{class:"muted small"},"Nothing happened this week. Suspicious.") : [
-      row("👑", done ? "Him of the Week" : "Leading", winners.length ? h("strong",null, `${winners.map(nm).join(" & ")} · ${st[0].pts} pts`) : h("span",{class:"muted"},"Nobody yet")),
-      law?.rule ? row("📜", "The King's rule", h("span",null, law.rule)) : null,
-      law?.punishment ? row("⚖️", "Punishment", h("span",null, broke ? `${nm(broke.uid)} has to: ${law.punishment}` : law.punishment)) : null,
-      broke ? row("💸", "Brokest of the Week", h("span",null, `${nm(broke.uid)} · lost ${broke.lost} HB`)) : null,
-      mostNom ? row("⚖️", "Most charged", h("span",null, `${nm(mostNom)} · ${nomCount[mostNom]} charges`)) : null,
+      row("👑", done ? "The Himmest of the Week" : "Leading", winners.length ? h("strong",null, `${winners.map(nm).join(" & ")} · ${st.find(x=>x.uid===winners[0]).pts} pts`) : h("span",{class:"muted"},"Nobody yet")),
+      win && win.how !== "points" ? row("🪙", "Tiebreak", h("span",null, HOW[win.how])) : null,
+      law?.reward ? row("🎁", "Reward of the reigning Himmest", h("span",null, law.reward)) : null,
+      law?.punishment ? row("⚖️", "Punishment", h("span",null, broke ? `${nm(broke.uid)} has to: ${law.punishment} (${broke.why})` : law.punishment)) : null,
+      broke ? row("💸", "Brokest of the Week", h("span",null, `${nm(broke.uid)} · ${broke.why}`)) : null,
+      mostNom ? row("⚖️", "Most charged", h("span",null, `${nm(mostNom)} · ${nomCount[mostNom]} charge${nomCount[mostNom]===1?"":"s"}`)) : null,
       q ? row("🗣️", "Quote of the week", h("span",null, h("strong",null,`"${q.text}"`), ` — ${firstNm(q.about)}`)) : null,
       p ? row("📸", "Moment of the week", h("button",{class:"linkbtn",onclick:()=>lightbox(p.img, `${nm(p.about)}: ${p.caption}`)}, `${firstNm(p.about)}: ${p.caption || "view photo"}`)) : null,
       acq ? row("😇", "Got away with it", h("span",null, `${acq} acquittal${acq===1?"":"s"}`)) : null,
@@ -183,7 +184,7 @@ function viewMe(L){
   const myWeek = standings(wk.start, wk.end).find(s=>s.uid===S.uid)?.pts || 0;
   const card = h("div",{class:"card loud"},
     h("div",{style:"display:flex;align-items:center;gap:14px"}, avatar(S.uid,"xl"),
-      h("div",{style:"min-width:0"}, h("h2",null, nm(S.uid)), p.nick ? h("div",{style:"font-weight:700"}, `"${p.nick}"`) : null, h("div",{class:"sub"}, p.archetype))),
+      h("div",{style:"min-width:0"}, himBadge(S.uid), h("h2",null, nm(S.uid)), p.nick ? h("div",{style:"font-weight:700"}, `"${p.nick}"`) : null, h("div",{class:"sub"}, p.archetype))),
     h("div",{style:"margin-block:14px"}, brainMeter(S.uid)),
     h("div",{class:"trophies"}, [["day","Days"],["week","Weeks"],["month","Months"],["year","Years"]].map(([k,l])=>h("div",null, h("div",{class:"big"}, tr[k]), h("div",{class:"label"}, l)))),
     h("div",{style:"margin-top:12px"},

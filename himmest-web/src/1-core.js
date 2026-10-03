@@ -154,7 +154,7 @@ const pick = (arr, seed) => { let x = 0; for (const c of String(seed)) x = (x*31
 const S = { uid:null, email:"", tab:"today", rankTab:"week", memTab:"roll", loaded:new Set(), push:"unknown",
   openComments:new Set(), cdraft:{}, reasonFor:null, kingOpen:false, showAppeal:false };
 for (const c of COLS) S[c] = {};
-const draft = { moment:{ img:null, about:"", caption:"" }, quote:{ about:"", text:"" }, nom:{ about:"", reason:"" },
+const draft = { moment:{ img:null, about:"", caption:"" }, quote:{ about:"", text:"" }, nom:{ about:"", reason:"" }, reign:{ for:"", reward:"", punishment:"", photo:null },
   bets:{ week:{on:"",amt:""}, month:{on:"",amt:""}, year:{on:"",amt:""} } };
 try { const t = localStorage.getItem("himmest.tab"); if (t && t !== "bets") S.tab = t; } catch {}
 let D = null, V = "", authed = null;
@@ -313,10 +313,32 @@ function whyText(br){
   if (br.moments) parts.push(`${br.moments} best moment${br.moments===1?"":"s"}`);
   return parts.join(" · ") || "nothing yet";
 }
-function winnersOfPeriod(per){
-  const st = standings(per.start, per.end); const max = st[0]?.pts || 0;
-  return max > 0 ? st.filter(s=>s.pts===max).map(s=>s.uid) : [];
+/* Activity in a date range: votes cast, charges filed, moments posted, quotes logged. Used to break ties. */
+function activity(uid, start, end){
+  const inR = d => d >= start && d <= end;
+  let n = Object.entries(S.votes[uid]?.days || {}).filter(([d, t]) => inR(d) && isMember(t) && t !== uid).length;
+  n += D.noms.filter(x=>x.author===uid && inR(x.day)).length;
+  n += D.photos.filter(x=>x.author===uid && inR(x.day)).length;
+  n += D.quotes.filter(x=>x.author===uid && inR(x.day)).length;
+  return n;
 }
+function coin(seed){ let x = 2166136261; for (const c of String(seed)) { x ^= c.charCodeAt(0); x = Math.imul(x, 16777619) >>> 0; } return x; }
+/* Exactly one winner: most Him Points, then most active, then most votes received, then a coin flip. */
+function winnerOf(per){
+  const st = standings(per.start, per.end), max = st[0]?.pts || 0;
+  if (!max) return null;
+  let tied = st.filter(s=>s.pts===max);
+  if (tied.length === 1) return { uid:tied[0].uid, how:"points" };
+  const act = Object.fromEntries(tied.map(s=>[s.uid, activity(s.uid, per.start, per.end)]));
+  const topAct = Math.max(...Object.values(act)); tied = tied.filter(s=>act[s.uid]===topAct);
+  if (tied.length === 1) return { uid:tied[0].uid, how:"activity" };
+  const topV = Math.max(...tied.map(s=>s.br.votes)); tied = tied.filter(s=>s.br.votes===topV);
+  if (tied.length === 1) return { uid:tied[0].uid, how:"votes" };
+  tied.sort((a,b)=>coin(per.start+a.uid) - coin(per.start+b.uid));
+  return { uid:tied[0].uid, how:"coin" };
+}
+const HOW = { points:"Most Him Points", activity:"Tie broken: most active", votes:"Tie broken: most votes", coin:"Tie broken: coin flip 🪙", interim:"Launch week: interim pick" };
+function winnersOfPeriod(per){ const w = winnerOf(per); return w ? [w.uid] : []; }
 function brainCells(uid){
   const wk = periodOf("week", D.td); const s = standings(wk.start, wk.end).find(x=>x.uid===uid);
   return Math.max(0, 100 - (s?.pts||0) * 2);
@@ -333,19 +355,22 @@ function trophies(uid){
   for (const type of ["week","month","year"]) for (const x of pastWinners(type)) if (x.winners.includes(uid)) out[type]++;
   return out;
 }
-/* The King of a week is whoever won the week before. */
+/* The Himmest who reigns during a week is the winner of the week before. */
 function reignFor(per){
   const prev = periodOf("week", addDays(per.start, -1));
-  let kings = prev.end < D.td ? winnersOfPeriod(prev) : [];
-  if (per.key === LAUNCH_WEEK && !kings.length) {
-    /* Interim King: the latest finished day's Himmest this week, else whoever leads the week right now. */
-    for (let d = addDays(D.td, -1); d >= per.start && !kings.length; d = addDays(d, -1)) kings = [...(D.dw[d] || [])];
-    if (!kings.length) kings = winnersOfPeriod({ start:per.start, end:D.td });
+  let w = prev.end < D.td ? winnerOf(prev) : null;
+  if (per.key === LAUNCH_WEEK && !w) {
+    /* Launch week: the latest finished day's Himmest this week, else whoever leads the week right now. */
+    for (let d = addDays(D.td, -1); d >= per.start && !w; d = addDays(d, -1)) { const x = winnerOf({ start:d, end:d }); if (x) w = { uid:x.uid, how:"interim" }; }
+    if (!w) { const x = winnerOf({ start:per.start, end:D.td }); if (x) w = { uid:x.uid, how:"interim" }; }
   }
-  let law = null;
-  for (const k of kings) { const w = S.reign[k]?.weeks?.[per.key]; if (w && (w.rule || w.punishment || w.photo)) { law = { ...w, by:k }; break; } }
-  return { kings, law, prev };
+  const kings = w ? [w.uid] : [];
+  const r = w ? S.reign[w.uid]?.weeks?.[per.key] : null;
+  const law = r && (r.reward || r.punishment || r.photo || r.rule) ? { ...r, by:w.uid } : null;
+  return { kings, how:w?.how, law, prev };
 }
+const himmestNow = () => reignFor(periodOf("week", D.td)).kings[0] || null;
+function himBadge(uid){ return uid && uid === himmestNow() ? h("span",{class:"himbadge"},"👑 THE HIMMEST") : null; }
 function ledger(){
   const td = D.td, bal = {}, hist = {};
   for (const u of members()) {
@@ -383,7 +408,19 @@ function ledger(){
   floor();
   const open = clamp(Object.values(groups).filter(g=>g.per.end >= td).flatMap(g=>g.list.map(b=>({ ...b, per:g.per }))));
   const escrow = {}; for (const b of open) escrow[b.uid] = (escrow[b.uid]||0) + b.amt;
-  /* Brokest of a finished week: the biggest loser on that week's bets. */
-  const brokest = key => { const m = weekNet[key]; if (!m) return null; const [u, n] = Object.entries(m).sort((a,b)=>a[1]-b[1])[0] || []; return u && n < 0 ? { uid:u, lost:-n } : null; };
+  /* Who gets the punishment for a finished week: the biggest loser on that week's King bet.
+     Not betting counts as the biggest loss. Ties go to whoever was least active that week. */
+  const brokest = per => {
+    if (!per || per.end >= td) return null;
+    const m = weekNet[per.key] || {};
+    const pool = members().filter(u => (S.profiles[u].joined || "") <= per.end);
+    if (!pool.length) return null;
+    const loss = u => u in m ? -m[u] : Infinity;
+    const worst = Math.max(...pool.map(loss));
+    if (worst <= 0) return null;
+    const tied = pool.filter(u => loss(u) === worst).sort((a,b)=>activity(a, per.start, per.end) - activity(b, per.start, per.end) || coin(per.key+a) - coin(per.key+b));
+    const u = tied[0];
+    return { uid:u, lost: worst === Infinity ? 0 : worst, why: worst === Infinity ? "didn't bet" : `lost ${worst} HB`, tie: tied.length > 1 };
+  };
   return { bal, hist, open, brokest, avail:u=>Math.max(0,(bal[u]||0)-(escrow[u]||0)) };
 }

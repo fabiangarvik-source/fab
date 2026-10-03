@@ -13,64 +13,73 @@ function commentary(){
   ], D.td + t[a]);
 }
 
+const REWARD_IDEAS = ["Front seat all week","Picks the music at every pregame","One free veto on group plans","Someone buys his first drink","Gives one guy a nickname for the week"];
+const PUNISH_IDEAS = ["Buys kebab for the whole group","Cooks dinner for the boys","50 push-ups in public","Designated driver for one night","Talks in third person for a whole day","Wears a costume to class"];
+
+/* Who has to do last week's punishment, as a line of text. */
+function owesLine(L, per){
+  const last = periodOf("week", addDays(per.start, -1)), law = reignFor(last).law, b = L.brokest(last);
+  if (!law?.punishment || !b) return null;
+  return { uid:b.uid, text:`${firstNm(b.uid)} has to: ${law.punishment}`, why:`${b.why}${b.tie ? ", least active in a tie" : ""}` };
+}
 function kingCard(L){
-  const per = periodOf("week", D.td), { kings, law } = reignFor(per);
-  const lastWeek = periodOf("week", addDays(per.start, -1));
-  const lastLaw = reignFor(lastWeek).law, broke = L.brokest(lastWeek.key);
-  const payUp = lastLaw?.punishment && broke ? h("div",{class:"law"}, h("div",{class:"label"},"🧾 Pay up from last week"),
-    h("p",null, `${nm(broke.uid)} lost ${broke.lost} HB and has to: ${lastLaw.punishment}`)) : null;
+  const per = periodOf("week", D.td), { kings, how, law } = reignFor(per);
+  const owes = owesLine(L, per);
+  const payUp = owes ? h("div",{class:"law"}, h("div",{class:"label"},"🧾 Pay up from last week"), h("p",null, owes.text), h("div",{class:"small"}, `(${owes.why})`)) : null;
   if (!kings.length) return h("div",{class:"king"},
-    h("div",{class:"label",style:"color:var(--hi-ink)"},"👑 King of the Week"),
-    h("h2",null,"The throne is empty"),
-    h("p",{style:"font-weight:700"},"Win the week and you get the crown. The King makes one rule for the week and picks the punishment."),
+    h("div",{class:"label",style:"color:var(--hi-ink)"},"👑 The Himmest of the Week"),
+    h("h2",null,"Nobody has earned it yet"),
+    h("p",{style:"font-weight:700"},"Most Him Points by Sunday wins. The winner wears the Him T-shirt all week, picks a reward and picks the punishment."),
     payUp);
-  const isKing = kings.includes(S.uid), names = kings.map(nm).join(" & ");
-  const rule = h("input",{id:"k-rule",maxlength:"120",value:law?.by===S.uid?law.rule||"":"",placeholder:"Everyone has to call me Your Majesty"});
-  const pun = h("input",{id:"k-pun",maxlength:"120",value:law?.by===S.uid?law.punishment||"":"",placeholder:"Buys the whole group kebab"});
-  let crownPic = law?.by===S.uid && okImg(law.photo) ? law.photo : null;
+  const u = kings[0], isKing = u === S.uid, rd = draft.reign;
+  if (rd.for !== per.key) Object.assign(rd, { for:per.key, reward: law?.reward || "", punishment: law?.punishment || "", photo: law?.photo || null });
   const onPic = async e => {
     pickUntil = 0; const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
-    try { toast("Uploading your royal portrait…"); crownPic = await uploadImg("photo", await compress(f,{max:1080,square:false,budget:300000})); toast("Looking regal. Now save it."); }
+    try { toast("Uploading your royal portrait…"); rd.photo = await uploadImg("photo", await compress(f,{max:1080,square:false,budget:300000})); toast("Looking regal. Now save it."); }
     catch(x){ toast(x.message); }
   };
+  const ideaChips = (list, field) => h("div",{class:"chips"}, list.map(t=>h("button",{type:"button",class:"chip"+(rd[field]===t?" on":""),onclick:()=>{ rd[field] = t; render(); }}, t)));
   return h("div",{class:"king"},
-    h("div",{class:"label",style:"color:var(--hi-ink)"},`👑 King of the Week · ${periodName(per)}`),
-    h("div",{style:"display:flex;align-items:center;gap:12px"}, avatar(kings[0],"lg"), h("h2",null, names)),
-    law?.photo && okImg(law.photo) ? h("img",{src:law.photo,alt:"The King with his crown",style:"width:100%;max-height:280px;object-fit:cover;border-radius:10px;border:2px solid var(--hi-ink);cursor:zoom-in",onclick:()=>lightbox(law.photo,`${names} wearing the crown`)}) : null,
-    h("div",{class:"law"}, h("div",{class:"label"},"📜 Rule of the week"), h("p",null, law?.rule || "The King hasn't made a rule yet. Weak leadership.")),
-    h("div",{class:"law"}, h("div",{class:"label"},"⚖️ Punishment"), h("p",null, law?.punishment || "No punishment picked yet."),
-      h("div",{class:"small",style:"margin-top:4px"},"Goes to whoever loses the most Himbucks betting this week.")),
+    h("div",{class:"label",style:"color:var(--hi-ink)"},`👑 The Himmest of the Week · ${periodName(per)}`),
+    h("div",{style:"display:flex;align-items:center;gap:12px"}, avatar(u,"lg"), h("div",null, h("h2",null, nm(u)), h("div",{class:"small"}, HOW[how] || ""))),
+    law?.photo && okImg(law.photo) ? h("img",{src:law.photo,alt:"The Himmest in his crown",style:"width:100%;max-height:280px;object-fit:cover;border-radius:10px;border:2px solid var(--hi-ink);cursor:zoom-in",onclick:()=>lightbox(law.photo,`${nm(u)}, The Himmest`)}) : null,
+    h("div",{class:"law"}, h("div",{class:"label"},"👕 All week"), h("p",null, `Wears the Him T-shirt and must be called "The Himmest".`)),
+    h("div",{class:"law"}, h("div",{class:"label"},"🎁 His reward"), h("p",null, law?.reward || "Not picked yet.")),
+    h("div",{class:"law"}, h("div",{class:"label"},"⚖️ The punishment"), h("p",null, law?.punishment || "Not picked yet."),
+      h("div",{class:"small",style:"margin-top:4px"},"Goes to whoever loses the most Himbucks on this week's bet. Didn't bet? Then it's you.")),
     payUp,
     isKing ? h("form",{onsubmit:async e=>{
       e.preventDefault();
+      if (!rd.reward.trim() || !rd.punishment.trim()) { toast("Pick both a reward and a punishment, Your Highness."); return; }
       const weeks = { ...(mine("reign").weeks||{}) };
-      weeks[per.key] = { rule:rule.value.trim().slice(0,120), punishment:pun.value.trim().slice(0,120), photo:crownPic||undefined, ts:Date.now() };
+      weeks[per.key] = { reward:rd.reward.trim().slice(0,120), punishment:rd.punishment.trim().slice(0,120), photo:rd.photo||undefined, ts:Date.now() };
       const keep = {}; for (const k of Object.keys(weeks).sort().slice(-200)) keep[k] = weeks[k];
-      if (await write("reign",{ weeks:keep })) { toast("Royal decree published. Abuse your power responsibly."); confetti(); render(); }
+      if (await write("reign",{ weeks:keep })) { toast("Decree published. Abuse your power responsibly."); confetti(); S.kingOpen = false; render(); }
     }},
-      h("div",{class:"label",style:"color:var(--hi-ink)"},"You're the King. Make it count."),
-      h("div",{class:"field"}, h("label",{class:"label",for:"k-rule",style:"color:var(--hi-ink)"},"Your rule"), rule),
-      h("div",{class:"field"}, h("label",{class:"label",for:"k-pun",style:"color:var(--hi-ink)"},"Your punishment"), pun),
+      h("div",{class:"label",style:"color:var(--hi-ink)"},"You're The Himmest. Make it count."),
+      h("div",{class:"field"}, h("label",{class:"label",for:"k-rew",style:"color:var(--hi-ink)"},"🎁 Pick your reward"), ideaChips(REWARD_IDEAS,"reward"),
+        h("input",{id:"k-rew",maxlength:"120",value:rd.reward,placeholder:"Or write your own",oninput:e=>rd.reward=e.target.value})),
+      h("div",{class:"field"}, h("label",{class:"label",for:"k-pun",style:"color:var(--hi-ink)"},"⚖️ Pick the punishment"), ideaChips(PUNISH_IDEAS,"punishment"),
+        h("input",{id:"k-pun",maxlength:"120",value:rd.punishment,placeholder:"Or write your own",oninput:e=>rd.punishment=e.target.value})),
       h("div",{class:"btnrow"},
-        h("label",{class:"btn",for:"k-cam"},"📸 Crown selfie"),
+        h("label",{class:"btn",for:"k-cam"},"📸 Him T-shirt selfie"),
         h("input",{id:"k-cam",class:"vh",type:"file",accept:"image/*",capture:"user",onclick:picking,onchange:onPic}),
-        h("button",{class:"btn primary",type:"submit"},"Publish decree"))) : null,
-    !isKing && !law ? h("p",{class:"small muted"},`Waiting on ${firstNm(kings[0])} to decree something. Any day now, Your Majesty.`) : null);
+        h("button",{class:"btn primary",type:"submit"}, law ? "Update decree" : "Publish decree"))) : null,
+    !isKing && !law ? h("p",{class:"small muted"},`Waiting on ${firstNm(u)} to pick. Any day now, Your Highness.`) : null);
 }
 
-/* The King as a one-line strip; tap to open the full card. The King himself sees the full card until he decrees. */
+/* The Himmest as a one-line strip; tap to open the full card. The Himmest himself sees the full card until he picks. */
 function kingStrip(L){
-  const per = periodOf("week", D.td), { kings, law } = reignFor(per);
-  const lastWeek = periodOf("week", addDays(per.start, -1)), broke = L.brokest(lastWeek.key), lastLaw = reignFor(lastWeek).law;
-  const mustOpen = kings.includes(S.uid) && !law;
+  const per = periodOf("week", D.td), { kings, law } = reignFor(per), owes = owesLine(L, per);
+  const mustOpen = kings[0] === S.uid && !law;
   if (S.kingOpen || mustOpen) return h("div",{class:"stack",style:"gap:8px"}, kingCard(L),
-    mustOpen ? null : h("button",{class:"linkbtn",onclick:()=>{ S.kingOpen = false; render(); }},"Hide the King"));
+    mustOpen ? null : h("button",{class:"linkbtn",onclick:()=>{ S.kingOpen = false; render(); }},"Hide"));
   return h("button",{class:"kingstrip",onclick:()=>{ S.kingOpen = true; render(); }},
     kings.length ? avatar(kings[0],"sm") : h("span",{"aria-hidden":"true",style:"font-size:1.3rem"},"👑"),
     h("span",{class:"ks-text"},
-      h("b",null, kings.length ? `${per.key === LAUNCH_WEEK ? "Interim King" : "King"} ${kings.map(firstNm).join(" & ")}` : "No King yet"),
-      h("span",null, law?.punishment ? `⚖️ Loser this week: ${law.punishment}` : kings.length ? "No decree yet. Weak." : "Win the week to take the crown"),
-      lastLaw?.punishment && broke ? h("span",null, `🧾 ${firstNm(broke.uid)} owes: ${lastLaw.punishment}`) : null),
+      h("b",null, kings.length ? `👕 ${firstNm(kings[0])} is The Himmest` : "No Himmest of the Week yet"),
+      h("span",null, law ? `🎁 ${law.reward || "—"} · ⚖️ Loser: ${law.punishment || "—"}` : kings.length ? "Hasn't picked a reward or punishment yet." : "Most Him Points by Sunday takes it"),
+      owes ? h("span",null, `🧾 ${owes.text}`) : null),
     h("span",{class:"ks-more","aria-hidden":"true"},"›"));
 }
 
@@ -115,7 +124,7 @@ function suspectCard(uid, t, top, myVote){
     picked ? h("span",{class:"sticker"},"YOUR PICK") : null,
     n && n===top && !acquitted ? h("span",{class:"sticker lead"},"LEADING") : null,
     h("div",{class:"top"}, avatar(uid,"lg"),
-      h("div",{style:"min-width:0"}, h("div",{class:"nm",style:"font-size:1.1rem"}, nm(uid), self ? " (you)" : ""),
+      h("div",{style:"min-width:0"}, himBadge(uid), h("div",{class:"nm",style:"font-size:1.1rem"}, nm(uid), self ? " (you)" : ""),
         h("div",{class:"sub"}, charges.length ? `${charges.length} charge${charges.length===1?"":"s"}` : "No charges filed"), brainMeter(uid)),
       h("div",{class:"count"}, h("div",{class:"votes"}, acquitted ? "–" : n), h("div",{class:"label"}, n===1?"vote":"votes"))),
     charges.length ? h("div",{class:"charges"}, charges.map(c=>h("div",{class:"charge"}, h("q",null,c.reason), h("div",{class:"by"},`filed by ${firstNm(c.author)}`)))) : null,
@@ -181,15 +190,16 @@ function viewToday(L){
     h("div",{class:"voters"}, rest.map(u=>{
       const self = u===S.uid;
       return h("button",{class:"vcard",disabled:self,"aria-label":self?`${nm(u)} (you can't vote for yourself)`:`Vote ${nm(u)} Himmest`,onclick:()=>vote(u)},
-        avatar(u,"lg"), h("div",{class:"nmv"}, nm(u), self ? " (you)" : ""), self ? h("div",{class:"small muted"},"Can't vote yourself") : h("div",{class:"label"},"Tap to vote"));
+        himBadge(u), avatar(u,"lg"), h("div",{class:"nmv"}, nm(u), self ? " (you)" : ""), self ? h("div",{class:"small muted"},"Can't vote yourself") : h("div",{class:"label"},"Tap to vote"));
     }))) : null;
   const how = h("details",{class:"card how"}, h("summary",null,"How it works (for the slow ones)"),
     h("ul",null,
       h("li",null,"Tap a face to vote for today's Himmest. Say what he did if you want it roasted."),
       h("li",null,"Most votes at midnight wins the day."),
       h("li",null,"Him Points: 1 per vote you get, +3 for winning a day, +2 for the day's best quote, +2 for the day's best moment."),
-      h("li",null,"Most Him Points by Sunday = King of the Week. The King makes a rule and picks the punishment."),
-      h("li",null,"Bet on the King before Wednesday midnight (launch week: Saturday). Whoever loses the most Himbucks gets the punishment."),
+      h("li",null,"Most Him Points Monday to Sunday = The Himmest of the Week. Tie? Most active wins, then most votes, then a coin flip."),
+      h("li",null,"The Himmest wears the Him T-shirt all next week, gets called The Himmest, and picks a reward and a punishment."),
+      h("li",null,"Bet on who wins before Wednesday midnight (launch week: Saturday). Whoever loses the most Himbucks does the punishment. Didn't bet? Then it's you."),
       h("li",null,"Got votes? You can appeal once. Win the trial and your votes don't count.")));
   return h("div",{class:"stack"},
     pushCard(), kingStrip(L), reasonCard(), hero,

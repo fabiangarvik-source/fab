@@ -75,7 +75,7 @@ function ceremony(c){
   ceremonyOpen = true;
   const box = h("div",{class:"ceremony",role:"dialog","aria-label":"Crowning ceremony"});
   const close = () => { markSeen(c.key); box.remove(); ceremonyOpen = false; render(); };
-  const title = c.week ? "King of the Week" : "The Himmest";
+  const title = c.week ? "The Himmest of the Week" : "The Himmest";
   const when = c.week ? periodName(c.per) : fmtDay(c.day);
   const reveal = () => {
     const u = c.winners[0], names = c.winners.map(nm).join(" & ");
@@ -86,11 +86,11 @@ function ceremony(c){
       h("div",{class:"crownav"}, avatar(u,"xl")),
       h("h1",null, names),
       charge ? h("p",{style:"font-weight:700;max-width:28rem"}, `Charge: "${charge.reason}"`) : null,
-      c.week ? h("p",{style:"max-width:28rem"}, isMe ? "You're the King. You make the rule and pick the punishment for this week." : `${firstNm(u)} now makes the rule and picks this week's punishment. God help us.`) : null,
+      c.week ? h("p",{style:"max-width:28rem"}, isMe ? "You're The Himmest. Put on the Him T-shirt, pick your reward and pick the punishment." : `${firstNm(u)} wears the Him T-shirt all week, picks his reward and picks the punishment. Pray.`) : null,
       roast(`crown:${c.key}`, "crown", { name:firstNm(u), text: charge ? charge.reason : "won the whole week" }),
       h("div",{class:"btnrow"},
         h("button",{class:"btn hi",onclick:()=>shareStory({ title, when, uid:u, names, line: charge ? `"${charge.reason}"` : roastLine("crown", firstNm(u), `crown:${c.key}`) })},"📲 Share to Story"),
-        h("button",{class:"btn",onclick:()=>{ close(); if (c.week && isMe) go("today"); }}, c.week && isMe ? "Set the rules" : "Continue"))));
+        h("button",{class:"btn",onclick:()=>{ close(); if (c.week && isMe) go("today"); }}, c.week && isMe ? "Pick reward + punishment" : "Continue"))));
     confetti();
   };
   document.body.append(box);

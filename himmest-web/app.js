@@ -267,7 +267,7 @@ const pick = (arr, seed) => { let x = 0; for (const c of String(seed)) x = (x*31
 const S = { uid:null, email:"", tab:"today", rankTab:"week", memTab:"roll", loaded:new Set(), push:"unknown",
   openComments:new Set(), cdraft:{}, reasonFor:null, kingOpen:false, showAppeal:false };
 for (const c of COLS) S[c] = {};
-const draft = { moment:{ img:null, about:"", caption:"" }, quote:{ about:"", text:"" }, nom:{ about:"", reason:"" },
+const draft = { moment:{ img:null, about:"", caption:"" }, quote:{ about:"", text:"" }, nom:{ about:"", reason:"" }, reign:{ for:"", reward:"", punishment:"", photo:null },
   bets:{ week:{on:"",amt:""}, month:{on:"",amt:""}, year:{on:"",amt:""} } };
 try { const t = localStorage.getItem("himmest.tab"); if (t && t !== "bets") S.tab = t; } catch {}
 let D = null, V = "", authed = null;
@@ -426,10 +426,32 @@ function whyText(br){
   if (br.moments) parts.push(`${br.moments} best moment${br.moments===1?"":"s"}`);
   return parts.join(" · ") || "nothing yet";
 }
-function winnersOfPeriod(per){
-  const st = standings(per.start, per.end); const max = st[0]?.pts || 0;
-  return max > 0 ? st.filter(s=>s.pts===max).map(s=>s.uid) : [];
+/* Activity in a date range: votes cast, charges filed, moments posted, quotes logged. Used to break ties. */
+function activity(uid, start, end){
+  const inR = d => d >= start && d <= end;
+  let n = Object.entries(S.votes[uid]?.days || {}).filter(([d, t]) => inR(d) && isMember(t) && t !== uid).length;
+  n += D.noms.filter(x=>x.author===uid && inR(x.day)).length;
+  n += D.photos.filter(x=>x.author===uid && inR(x.day)).length;
+  n += D.quotes.filter(x=>x.author===uid && inR(x.day)).length;
+  return n;
 }
+function coin(seed){ let x = 2166136261; for (const c of String(seed)) { x ^= c.charCodeAt(0); x = Math.imul(x, 16777619) >>> 0; } return x; }
+/* Exactly one winner: most Him Points, then most active, then most votes received, then a coin flip. */
+function winnerOf(per){
+  const st = standings(per.start, per.end), max = st[0]?.pts || 0;
+  if (!max) return null;
+  let tied = st.filter(s=>s.pts===max);
+  if (tied.length === 1) return { uid:tied[0].uid, how:"points" };
+  const act = Object.fromEntries(tied.map(s=>[s.uid, activity(s.uid, per.start, per.end)]));
+  const topAct = Math.max(...Object.values(act)); tied = tied.filter(s=>act[s.uid]===topAct);
+  if (tied.length === 1) return { uid:tied[0].uid, how:"activity" };
+  const topV = Math.max(...tied.map(s=>s.br.votes)); tied = tied.filter(s=>s.br.votes===topV);
+  if (tied.length === 1) return { uid:tied[0].uid, how:"votes" };
+  tied.sort((a,b)=>coin(per.start+a.uid) - coin(per.start+b.uid));
+  return { uid:tied[0].uid, how:"coin" };
+}
+const HOW = { points:"Most Him Points", activity:"Tie broken: most active", votes:"Tie broken: most votes", coin:"Tie broken: coin flip 🪙", interim:"Launch week: interim pick" };
+function winnersOfPeriod(per){ const w = winnerOf(per); return w ? [w.uid] : []; }
 function brainCells(uid){
   const wk = periodOf("week", D.td); const s = standings(wk.start, wk.end).find(x=>x.uid===uid);
   return Math.max(0, 100 - (s?.pts||0) * 2);
@@ -446,19 +468,22 @@ function trophies(uid){
   for (const type of ["week","month","year"]) for (const x of pastWinners(type)) if (x.winners.includes(uid)) out[type]++;
   return out;
 }
-/* The King of a week is whoever won the week before. */
+/* The Himmest who reigns during a week is the winner of the week before. */
 function reignFor(per){
   const prev = periodOf("week", addDays(per.start, -1));
-  let kings = prev.end < D.td ? winnersOfPeriod(prev) : [];
-  if (per.key === LAUNCH_WEEK && !kings.length) {
-    /* Interim King: the latest finished day's Himmest this week, else whoever leads the week right now. */
-    for (let d = addDays(D.td, -1); d >= per.start && !kings.length; d = addDays(d, -1)) kings = [...(D.dw[d] || [])];
-    if (!kings.length) kings = winnersOfPeriod({ start:per.start, end:D.td });
+  let w = prev.end < D.td ? winnerOf(prev) : null;
+  if (per.key === LAUNCH_WEEK && !w) {
+    /* Launch week: the latest finished day's Himmest this week, else whoever leads the week right now. */
+    for (let d = addDays(D.td, -1); d >= per.start && !w; d = addDays(d, -1)) { const x = winnerOf({ start:d, end:d }); if (x) w = { uid:x.uid, how:"interim" }; }
+    if (!w) { const x = winnerOf({ start:per.start, end:D.td }); if (x) w = { uid:x.uid, how:"interim" }; }
   }
-  let law = null;
-  for (const k of kings) { const w = S.reign[k]?.weeks?.[per.key]; if (w && (w.rule || w.punishment || w.photo)) { law = { ...w, by:k }; break; } }
-  return { kings, law, prev };
+  const kings = w ? [w.uid] : [];
+  const r = w ? S.reign[w.uid]?.weeks?.[per.key] : null;
+  const law = r && (r.reward || r.punishment || r.photo || r.rule) ? { ...r, by:w.uid } : null;
+  return { kings, how:w?.how, law, prev };
 }
+const himmestNow = () => reignFor(periodOf("week", D.td)).kings[0] || null;
+function himBadge(uid){ return uid && uid === himmestNow() ? h("span",{class:"himbadge"},"👑 THE HIMMEST") : null; }
 function ledger(){
   const td = D.td, bal = {}, hist = {};
   for (const u of members()) {
@@ -496,8 +521,20 @@ function ledger(){
   floor();
   const open = clamp(Object.values(groups).filter(g=>g.per.end >= td).flatMap(g=>g.list.map(b=>({ ...b, per:g.per }))));
   const escrow = {}; for (const b of open) escrow[b.uid] = (escrow[b.uid]||0) + b.amt;
-  /* Brokest of a finished week: the biggest loser on that week's bets. */
-  const brokest = key => { const m = weekNet[key]; if (!m) return null; const [u, n] = Object.entries(m).sort((a,b)=>a[1]-b[1])[0] || []; return u && n < 0 ? { uid:u, lost:-n } : null; };
+  /* Who gets the punishment for a finished week: the biggest loser on that week's King bet.
+     Not betting counts as the biggest loss. Ties go to whoever was least active that week. */
+  const brokest = per => {
+    if (!per || per.end >= td) return null;
+    const m = weekNet[per.key] || {};
+    const pool = members().filter(u => (S.profiles[u].joined || "") <= per.end);
+    if (!pool.length) return null;
+    const loss = u => u in m ? -m[u] : Infinity;
+    const worst = Math.max(...pool.map(loss));
+    if (worst <= 0) return null;
+    const tied = pool.filter(u => loss(u) === worst).sort((a,b)=>activity(a, per.start, per.end) - activity(b, per.start, per.end) || coin(per.key+a) - coin(per.key+b));
+    const u = tied[0];
+    return { uid:u, lost: worst === Infinity ? 0 : worst, why: worst === Infinity ? "didn't bet" : `lost ${worst} HB`, tie: tied.length > 1 };
+  };
   return { bal, hist, open, brokest, avail:u=>Math.max(0,(bal[u]||0)-(escrow[u]||0)) };
 }
 
@@ -579,7 +616,7 @@ function ceremony(c){
   ceremonyOpen = true;
   const box = h("div",{class:"ceremony",role:"dialog","aria-label":"Crowning ceremony"});
   const close = () => { markSeen(c.key); box.remove(); ceremonyOpen = false; render(); };
-  const title = c.week ? "King of the Week" : "The Himmest";
+  const title = c.week ? "The Himmest of the Week" : "The Himmest";
   const when = c.week ? periodName(c.per) : fmtDay(c.day);
   const reveal = () => {
     const u = c.winners[0], names = c.winners.map(nm).join(" & ");
@@ -590,11 +627,11 @@ function ceremony(c){
       h("div",{class:"crownav"}, avatar(u,"xl")),
       h("h1",null, names),
       charge ? h("p",{style:"font-weight:700;max-width:28rem"}, `Charge: "${charge.reason}"`) : null,
-      c.week ? h("p",{style:"max-width:28rem"}, isMe ? "You're the King. You make the rule and pick the punishment for this week." : `${firstNm(u)} now makes the rule and picks this week's punishment. God help us.`) : null,
+      c.week ? h("p",{style:"max-width:28rem"}, isMe ? "You're The Himmest. Put on the Him T-shirt, pick your reward and pick the punishment." : `${firstNm(u)} wears the Him T-shirt all week, picks his reward and picks the punishment. Pray.`) : null,
       roast(`crown:${c.key}`, "crown", { name:firstNm(u), text: charge ? charge.reason : "won the whole week" }),
       h("div",{class:"btnrow"},
         h("button",{class:"btn hi",onclick:()=>shareStory({ title, when, uid:u, names, line: charge ? `"${charge.reason}"` : roastLine("crown", firstNm(u), `crown:${c.key}`) })},"📲 Share to Story"),
-        h("button",{class:"btn",onclick:()=>{ close(); if (c.week && isMe) go("today"); }}, c.week && isMe ? "Set the rules" : "Continue"))));
+        h("button",{class:"btn",onclick:()=>{ close(); if (c.week && isMe) go("today"); }}, c.week && isMe ? "Pick reward + punishment" : "Continue"))));
     confetti();
   };
   document.body.append(box);
@@ -713,64 +750,73 @@ function commentary(){
   ], D.td + t[a]);
 }
 
+const REWARD_IDEAS = ["Front seat all week","Picks the music at every pregame","One free veto on group plans","Someone buys his first drink","Gives one guy a nickname for the week"];
+const PUNISH_IDEAS = ["Buys kebab for the whole group","Cooks dinner for the boys","50 push-ups in public","Designated driver for one night","Talks in third person for a whole day","Wears a costume to class"];
+
+/* Who has to do last week's punishment, as a line of text. */
+function owesLine(L, per){
+  const last = periodOf("week", addDays(per.start, -1)), law = reignFor(last).law, b = L.brokest(last);
+  if (!law?.punishment || !b) return null;
+  return { uid:b.uid, text:`${firstNm(b.uid)} has to: ${law.punishment}`, why:`${b.why}${b.tie ? ", least active in a tie" : ""}` };
+}
 function kingCard(L){
-  const per = periodOf("week", D.td), { kings, law } = reignFor(per);
-  const lastWeek = periodOf("week", addDays(per.start, -1));
-  const lastLaw = reignFor(lastWeek).law, broke = L.brokest(lastWeek.key);
-  const payUp = lastLaw?.punishment && broke ? h("div",{class:"law"}, h("div",{class:"label"},"🧾 Pay up from last week"),
-    h("p",null, `${nm(broke.uid)} lost ${broke.lost} HB and has to: ${lastLaw.punishment}`)) : null;
+  const per = periodOf("week", D.td), { kings, how, law } = reignFor(per);
+  const owes = owesLine(L, per);
+  const payUp = owes ? h("div",{class:"law"}, h("div",{class:"label"},"🧾 Pay up from last week"), h("p",null, owes.text), h("div",{class:"small"}, `(${owes.why})`)) : null;
   if (!kings.length) return h("div",{class:"king"},
-    h("div",{class:"label",style:"color:var(--hi-ink)"},"👑 King of the Week"),
-    h("h2",null,"The throne is empty"),
-    h("p",{style:"font-weight:700"},"Win the week and you get the crown. The King makes one rule for the week and picks the punishment."),
+    h("div",{class:"label",style:"color:var(--hi-ink)"},"👑 The Himmest of the Week"),
+    h("h2",null,"Nobody has earned it yet"),
+    h("p",{style:"font-weight:700"},"Most Him Points by Sunday wins. The winner wears the Him T-shirt all week, picks a reward and picks the punishment."),
     payUp);
-  const isKing = kings.includes(S.uid), names = kings.map(nm).join(" & ");
-  const rule = h("input",{id:"k-rule",maxlength:"120",value:law?.by===S.uid?law.rule||"":"",placeholder:"Everyone has to call me Your Majesty"});
-  const pun = h("input",{id:"k-pun",maxlength:"120",value:law?.by===S.uid?law.punishment||"":"",placeholder:"Buys the whole group kebab"});
-  let crownPic = law?.by===S.uid && okImg(law.photo) ? law.photo : null;
+  const u = kings[0], isKing = u === S.uid, rd = draft.reign;
+  if (rd.for !== per.key) Object.assign(rd, { for:per.key, reward: law?.reward || "", punishment: law?.punishment || "", photo: law?.photo || null });
   const onPic = async e => {
     pickUntil = 0; const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
-    try { toast("Uploading your royal portrait…"); crownPic = await uploadImg("photo", await compress(f,{max:1080,square:false,budget:300000})); toast("Looking regal. Now save it."); }
+    try { toast("Uploading your royal portrait…"); rd.photo = await uploadImg("photo", await compress(f,{max:1080,square:false,budget:300000})); toast("Looking regal. Now save it."); }
     catch(x){ toast(x.message); }
   };
+  const ideaChips = (list, field) => h("div",{class:"chips"}, list.map(t=>h("button",{type:"button",class:"chip"+(rd[field]===t?" on":""),onclick:()=>{ rd[field] = t; render(); }}, t)));
   return h("div",{class:"king"},
-    h("div",{class:"label",style:"color:var(--hi-ink)"},`👑 King of the Week · ${periodName(per)}`),
-    h("div",{style:"display:flex;align-items:center;gap:12px"}, avatar(kings[0],"lg"), h("h2",null, names)),
-    law?.photo && okImg(law.photo) ? h("img",{src:law.photo,alt:"The King with his crown",style:"width:100%;max-height:280px;object-fit:cover;border-radius:10px;border:2px solid var(--hi-ink);cursor:zoom-in",onclick:()=>lightbox(law.photo,`${names} wearing the crown`)}) : null,
-    h("div",{class:"law"}, h("div",{class:"label"},"📜 Rule of the week"), h("p",null, law?.rule || "The King hasn't made a rule yet. Weak leadership.")),
-    h("div",{class:"law"}, h("div",{class:"label"},"⚖️ Punishment"), h("p",null, law?.punishment || "No punishment picked yet."),
-      h("div",{class:"small",style:"margin-top:4px"},"Goes to whoever loses the most Himbucks betting this week.")),
+    h("div",{class:"label",style:"color:var(--hi-ink)"},`👑 The Himmest of the Week · ${periodName(per)}`),
+    h("div",{style:"display:flex;align-items:center;gap:12px"}, avatar(u,"lg"), h("div",null, h("h2",null, nm(u)), h("div",{class:"small"}, HOW[how] || ""))),
+    law?.photo && okImg(law.photo) ? h("img",{src:law.photo,alt:"The Himmest in his crown",style:"width:100%;max-height:280px;object-fit:cover;border-radius:10px;border:2px solid var(--hi-ink);cursor:zoom-in",onclick:()=>lightbox(law.photo,`${nm(u)}, The Himmest`)}) : null,
+    h("div",{class:"law"}, h("div",{class:"label"},"👕 All week"), h("p",null, `Wears the Him T-shirt and must be called "The Himmest".`)),
+    h("div",{class:"law"}, h("div",{class:"label"},"🎁 His reward"), h("p",null, law?.reward || "Not picked yet.")),
+    h("div",{class:"law"}, h("div",{class:"label"},"⚖️ The punishment"), h("p",null, law?.punishment || "Not picked yet."),
+      h("div",{class:"small",style:"margin-top:4px"},"Goes to whoever loses the most Himbucks on this week's bet. Didn't bet? Then it's you.")),
     payUp,
     isKing ? h("form",{onsubmit:async e=>{
       e.preventDefault();
+      if (!rd.reward.trim() || !rd.punishment.trim()) { toast("Pick both a reward and a punishment, Your Highness."); return; }
       const weeks = { ...(mine("reign").weeks||{}) };
-      weeks[per.key] = { rule:rule.value.trim().slice(0,120), punishment:pun.value.trim().slice(0,120), photo:crownPic||undefined, ts:Date.now() };
+      weeks[per.key] = { reward:rd.reward.trim().slice(0,120), punishment:rd.punishment.trim().slice(0,120), photo:rd.photo||undefined, ts:Date.now() };
       const keep = {}; for (const k of Object.keys(weeks).sort().slice(-200)) keep[k] = weeks[k];
-      if (await write("reign",{ weeks:keep })) { toast("Royal decree published. Abuse your power responsibly."); confetti(); render(); }
+      if (await write("reign",{ weeks:keep })) { toast("Decree published. Abuse your power responsibly."); confetti(); S.kingOpen = false; render(); }
     }},
-      h("div",{class:"label",style:"color:var(--hi-ink)"},"You're the King. Make it count."),
-      h("div",{class:"field"}, h("label",{class:"label",for:"k-rule",style:"color:var(--hi-ink)"},"Your rule"), rule),
-      h("div",{class:"field"}, h("label",{class:"label",for:"k-pun",style:"color:var(--hi-ink)"},"Your punishment"), pun),
+      h("div",{class:"label",style:"color:var(--hi-ink)"},"You're The Himmest. Make it count."),
+      h("div",{class:"field"}, h("label",{class:"label",for:"k-rew",style:"color:var(--hi-ink)"},"🎁 Pick your reward"), ideaChips(REWARD_IDEAS,"reward"),
+        h("input",{id:"k-rew",maxlength:"120",value:rd.reward,placeholder:"Or write your own",oninput:e=>rd.reward=e.target.value})),
+      h("div",{class:"field"}, h("label",{class:"label",for:"k-pun",style:"color:var(--hi-ink)"},"⚖️ Pick the punishment"), ideaChips(PUNISH_IDEAS,"punishment"),
+        h("input",{id:"k-pun",maxlength:"120",value:rd.punishment,placeholder:"Or write your own",oninput:e=>rd.punishment=e.target.value})),
       h("div",{class:"btnrow"},
-        h("label",{class:"btn",for:"k-cam"},"📸 Crown selfie"),
+        h("label",{class:"btn",for:"k-cam"},"📸 Him T-shirt selfie"),
         h("input",{id:"k-cam",class:"vh",type:"file",accept:"image/*",capture:"user",onclick:picking,onchange:onPic}),
-        h("button",{class:"btn primary",type:"submit"},"Publish decree"))) : null,
-    !isKing && !law ? h("p",{class:"small muted"},`Waiting on ${firstNm(kings[0])} to decree something. Any day now, Your Majesty.`) : null);
+        h("button",{class:"btn primary",type:"submit"}, law ? "Update decree" : "Publish decree"))) : null,
+    !isKing && !law ? h("p",{class:"small muted"},`Waiting on ${firstNm(u)} to pick. Any day now, Your Highness.`) : null);
 }
 
-/* The King as a one-line strip; tap to open the full card. The King himself sees the full card until he decrees. */
+/* The Himmest as a one-line strip; tap to open the full card. The Himmest himself sees the full card until he picks. */
 function kingStrip(L){
-  const per = periodOf("week", D.td), { kings, law } = reignFor(per);
-  const lastWeek = periodOf("week", addDays(per.start, -1)), broke = L.brokest(lastWeek.key), lastLaw = reignFor(lastWeek).law;
-  const mustOpen = kings.includes(S.uid) && !law;
+  const per = periodOf("week", D.td), { kings, law } = reignFor(per), owes = owesLine(L, per);
+  const mustOpen = kings[0] === S.uid && !law;
   if (S.kingOpen || mustOpen) return h("div",{class:"stack",style:"gap:8px"}, kingCard(L),
-    mustOpen ? null : h("button",{class:"linkbtn",onclick:()=>{ S.kingOpen = false; render(); }},"Hide the King"));
+    mustOpen ? null : h("button",{class:"linkbtn",onclick:()=>{ S.kingOpen = false; render(); }},"Hide"));
   return h("button",{class:"kingstrip",onclick:()=>{ S.kingOpen = true; render(); }},
     kings.length ? avatar(kings[0],"sm") : h("span",{"aria-hidden":"true",style:"font-size:1.3rem"},"👑"),
     h("span",{class:"ks-text"},
-      h("b",null, kings.length ? `${per.key === LAUNCH_WEEK ? "Interim King" : "King"} ${kings.map(firstNm).join(" & ")}` : "No King yet"),
-      h("span",null, law?.punishment ? `⚖️ Loser this week: ${law.punishment}` : kings.length ? "No decree yet. Weak." : "Win the week to take the crown"),
-      lastLaw?.punishment && broke ? h("span",null, `🧾 ${firstNm(broke.uid)} owes: ${lastLaw.punishment}`) : null),
+      h("b",null, kings.length ? `👕 ${firstNm(kings[0])} is The Himmest` : "No Himmest of the Week yet"),
+      h("span",null, law ? `🎁 ${law.reward || "—"} · ⚖️ Loser: ${law.punishment || "—"}` : kings.length ? "Hasn't picked a reward or punishment yet." : "Most Him Points by Sunday takes it"),
+      owes ? h("span",null, `🧾 ${owes.text}`) : null),
     h("span",{class:"ks-more","aria-hidden":"true"},"›"));
 }
 
@@ -815,7 +861,7 @@ function suspectCard(uid, t, top, myVote){
     picked ? h("span",{class:"sticker"},"YOUR PICK") : null,
     n && n===top && !acquitted ? h("span",{class:"sticker lead"},"LEADING") : null,
     h("div",{class:"top"}, avatar(uid,"lg"),
-      h("div",{style:"min-width:0"}, h("div",{class:"nm",style:"font-size:1.1rem"}, nm(uid), self ? " (you)" : ""),
+      h("div",{style:"min-width:0"}, himBadge(uid), h("div",{class:"nm",style:"font-size:1.1rem"}, nm(uid), self ? " (you)" : ""),
         h("div",{class:"sub"}, charges.length ? `${charges.length} charge${charges.length===1?"":"s"}` : "No charges filed"), brainMeter(uid)),
       h("div",{class:"count"}, h("div",{class:"votes"}, acquitted ? "–" : n), h("div",{class:"label"}, n===1?"vote":"votes"))),
     charges.length ? h("div",{class:"charges"}, charges.map(c=>h("div",{class:"charge"}, h("q",null,c.reason), h("div",{class:"by"},`filed by ${firstNm(c.author)}`)))) : null,
@@ -881,15 +927,16 @@ function viewToday(L){
     h("div",{class:"voters"}, rest.map(u=>{
       const self = u===S.uid;
       return h("button",{class:"vcard",disabled:self,"aria-label":self?`${nm(u)} (you can't vote for yourself)`:`Vote ${nm(u)} Himmest`,onclick:()=>vote(u)},
-        avatar(u,"lg"), h("div",{class:"nmv"}, nm(u), self ? " (you)" : ""), self ? h("div",{class:"small muted"},"Can't vote yourself") : h("div",{class:"label"},"Tap to vote"));
+        himBadge(u), avatar(u,"lg"), h("div",{class:"nmv"}, nm(u), self ? " (you)" : ""), self ? h("div",{class:"small muted"},"Can't vote yourself") : h("div",{class:"label"},"Tap to vote"));
     }))) : null;
   const how = h("details",{class:"card how"}, h("summary",null,"How it works (for the slow ones)"),
     h("ul",null,
       h("li",null,"Tap a face to vote for today's Himmest. Say what he did if you want it roasted."),
       h("li",null,"Most votes at midnight wins the day."),
       h("li",null,"Him Points: 1 per vote you get, +3 for winning a day, +2 for the day's best quote, +2 for the day's best moment."),
-      h("li",null,"Most Him Points by Sunday = King of the Week. The King makes a rule and picks the punishment."),
-      h("li",null,"Bet on the King before Wednesday midnight (launch week: Saturday). Whoever loses the most Himbucks gets the punishment."),
+      h("li",null,"Most Him Points Monday to Sunday = The Himmest of the Week. Tie? Most active wins, then most votes, then a coin flip."),
+      h("li",null,"The Himmest wears the Him T-shirt all next week, gets called The Himmest, and picks a reward and a punishment."),
+      h("li",null,"Bet on who wins before Wednesday midnight (launch week: Saturday). Whoever loses the most Himbucks does the punishment. Didn't bet? Then it's you."),
       h("li",null,"Got votes? You can appeal once. Win the trial and your votes don't count.")));
   return h("div",{class:"stack"},
     pushCard(), kingStrip(L), reasonCard(), hero,
@@ -1102,17 +1149,18 @@ function weekRecap(per, L){
   const nomCount = {}; for (const n of D.noms) if (inWeek(n.day)) nomCount[n.about] = (nomCount[n.about]||0) + 1;
   const mostNom = Object.keys(nomCount).sort((a,b)=>nomCount[b]-nomCount[a])[0];
   let acq = 0; for (const [d, m] of Object.entries(D.appeals)) if (inWeek(d)) for (const u of Object.keys(m)) if (D.acquitted(d,u)) acq++;
-  const law = reignFor(per).law, broke = done ? L.brokest(per.key) : null;
+  const law = reignFor(per).law, broke = done ? L.brokest(per) : null, win = winnerOf(per);
   const row = (ic, label, val) => h("div",{class:"rrow"}, h("div",{class:"ic","aria-hidden":"true"}, ic), h("div",{style:"min-width:0"}, h("div",{class:"label"},label), val));
   const empty = !st.some(s=>s.pts) && !q && !p && !mostNom;
   return h("div",{class:"card "+(done?"loud":"")+" recap"},
     h("div",{class:"head",style:"margin:0"}, h("h3",null, periodName(per)), h("span",{class:"pill "+(done?"":"live")}, done ? "Final" : "In progress")),
     empty ? h("p",{class:"muted small"},"Nothing happened this week. Suspicious.") : [
-      row("👑", done ? "Him of the Week" : "Leading", winners.length ? h("strong",null, `${winners.map(nm).join(" & ")} · ${st[0].pts} pts`) : h("span",{class:"muted"},"Nobody yet")),
-      law?.rule ? row("📜", "The King's rule", h("span",null, law.rule)) : null,
-      law?.punishment ? row("⚖️", "Punishment", h("span",null, broke ? `${nm(broke.uid)} has to: ${law.punishment}` : law.punishment)) : null,
-      broke ? row("💸", "Brokest of the Week", h("span",null, `${nm(broke.uid)} · lost ${broke.lost} HB`)) : null,
-      mostNom ? row("⚖️", "Most charged", h("span",null, `${nm(mostNom)} · ${nomCount[mostNom]} charges`)) : null,
+      row("👑", done ? "The Himmest of the Week" : "Leading", winners.length ? h("strong",null, `${winners.map(nm).join(" & ")} · ${st.find(x=>x.uid===winners[0]).pts} pts`) : h("span",{class:"muted"},"Nobody yet")),
+      win && win.how !== "points" ? row("🪙", "Tiebreak", h("span",null, HOW[win.how])) : null,
+      law?.reward ? row("🎁", "Reward of the reigning Himmest", h("span",null, law.reward)) : null,
+      law?.punishment ? row("⚖️", "Punishment", h("span",null, broke ? `${nm(broke.uid)} has to: ${law.punishment} (${broke.why})` : law.punishment)) : null,
+      broke ? row("💸", "Brokest of the Week", h("span",null, `${nm(broke.uid)} · ${broke.why}`)) : null,
+      mostNom ? row("⚖️", "Most charged", h("span",null, `${nm(mostNom)} · ${nomCount[mostNom]} charge${nomCount[mostNom]===1?"":"s"}`)) : null,
       q ? row("🗣️", "Quote of the week", h("span",null, h("strong",null,`"${q.text}"`), ` — ${firstNm(q.about)}`)) : null,
       p ? row("📸", "Moment of the week", h("button",{class:"linkbtn",onclick:()=>lightbox(p.img, `${nm(p.about)}: ${p.caption}`)}, `${firstNm(p.about)}: ${p.caption || "view photo"}`)) : null,
       acq ? row("😇", "Got away with it", h("span",null, `${acq} acquittal${acq===1?"":"s"}`)) : null,
@@ -1200,7 +1248,7 @@ function viewMe(L){
   const myWeek = standings(wk.start, wk.end).find(s=>s.uid===S.uid)?.pts || 0;
   const card = h("div",{class:"card loud"},
     h("div",{style:"display:flex;align-items:center;gap:14px"}, avatar(S.uid,"xl"),
-      h("div",{style:"min-width:0"}, h("h2",null, nm(S.uid)), p.nick ? h("div",{style:"font-weight:700"}, `"${p.nick}"`) : null, h("div",{class:"sub"}, p.archetype))),
+      h("div",{style:"min-width:0"}, himBadge(S.uid), h("h2",null, nm(S.uid)), p.nick ? h("div",{style:"font-weight:700"}, `"${p.nick}"`) : null, h("div",{class:"sub"}, p.archetype))),
     h("div",{style:"margin-block:14px"}, brainMeter(S.uid)),
     h("div",{class:"trophies"}, [["day","Days"],["week","Weeks"],["month","Months"],["year","Years"]].map(([k,l])=>h("div",null, h("div",{class:"big"}, tr[k]), h("div",{class:"label"}, l)))),
     h("div",{style:"margin-top:12px"},
