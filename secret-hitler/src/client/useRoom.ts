@@ -1,86 +1,104 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import type { RoomSnapshot } from "../protocol";
-import { getSocket, request, storage, tokenKey } from "./socket";
-
-export type ConnStatus = "connecting" | "connected" | "reconnecting";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { POLL_MS, type RoomSnapshot } from "../protocol";
+import { joinRoom, onSnapshot, pollRoom, storage, tokenKey } from "./api";
 
 /**
- * Keeps this tab attached to a room. Players resume their seat with the token
- * stored in localStorage; the table screen just watches.
+ * Keeps this tab in sync with a room by polling the API (Vercel functions can't
+ * hold WebSockets). Players resume their seat with the token in localStorage.
  */
 export function useRoom(code: string, mode: "player" | "table") {
   const [snap, setSnap] = useState<RoomSnapshot | null>(null);
-  const [status, setStatus] = useState<ConnStatus>("connecting");
+  const [offline, setOffline] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [needsName, setNeedsName] = useState(false);
-  const [kicked, setKicked] = useState(false);
+  const [left, setLeft] = useState(false);
+  const last = useRef<string>("");
 
-  const attach = useCallback(async () => {
-    if (mode === "table") {
-      const r = await request("watch", { code });
-      if (!r.ok) setError(r.error);
+  const accept = useCallback((s: RoomSnapshot | null) => {
+    if (s === null) {
+      setLeft(true);
+      setSnap(null);
       return;
     }
-    const token = storage(tokenKey(code));
-    if (!token) {
-      setNeedsName(true);
-      return;
+    const key = JSON.stringify(s);
+    if (key !== last.current) {
+      last.current = key;
+      setSnap(s);
     }
-    const r = await request<{ token: string; playerId: string }>("join", { code, token });
-    if (!r.ok) {
-      storage(tokenKey(code), null);
-      if (r.error.startsWith("No room")) setError(r.error);
-      else setNeedsName(true);
-    } else {
-      setNeedsName(false);
-      setError(null);
-    }
-  }, [code, mode]);
+  }, []);
+
+  useEffect(() => onSnapshot(accept), [accept]);
 
   useEffect(() => {
-    const s = getSocket();
-    const onRoom = (r: RoomSnapshot) => {
-      if (r.code === code.toUpperCase()) setSnap(r);
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const token = () => (mode === "player" ? storage(tokenKey(code)) : null);
+
+    let busy = false;
+    const tick = async () => {
+      if (stopped || busy) return;
+      if (document.visibilityState === "hidden") {
+        timer = setTimeout(tick, POLL_MS * 3);
+        return;
+      }
+      const t = token();
+      if (mode === "player" && !t) {
+        setNeedsName(true);
+        timer = setTimeout(tick, POLL_MS);
+        return;
+      }
+      busy = true;
+      const res = await pollRoom(code, t);
+      busy = false;
+      if (stopped) return;
+      if (res.ok) {
+        setOffline(false);
+        setError(null);
+        setNeedsName(false);
+        accept(res.snapshot);
+      } else if (res.error === "offline" || res.error.startsWith("Server error")) {
+        setOffline(true);
+      } else if (res.error === "Your seat in this room is gone") {
+        storage(tokenKey(code), null);
+        setLeft(true);
+        setSnap(null);
+      } else {
+        setError(res.error);
+      }
+      timer = setTimeout(tick, POLL_MS);
     };
-    const onConnect = () => {
-      setStatus("connected");
-      void attach();
+    const wake = () => {
+      if (document.visibilityState === "visible") {
+        clearTimeout(timer);
+        void tick();
+      }
     };
-    const onDisconnect = () => setStatus("reconnecting");
-    const onKicked = () => {
-      storage(tokenKey(code), null);
-      setKicked(true);
-      setSnap(null);
-    };
-    s.on("room", onRoom);
-    s.on("connect", onConnect);
-    s.on("disconnect", onDisconnect);
-    s.on("kicked", onKicked);
-    s.io.on("reconnect_attempt", () => setStatus("reconnecting"));
-    if (s.connected) onConnect();
-    else s.connect();
+    document.addEventListener("visibilitychange", wake);
+    window.addEventListener("online", wake);
+    void tick();
     return () => {
-      s.off("room", onRoom);
-      s.off("connect", onConnect);
-      s.off("disconnect", onDisconnect);
-      s.off("kicked", onKicked);
+      stopped = true;
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", wake);
+      window.removeEventListener("online", wake);
     };
-  }, [code, attach]);
+  }, [code, mode, accept]);
 
   const joinWithName = useCallback(
     async (name: string) => {
-      const r = await request<{ token: string; playerId: string }>("join", { code, name });
-      if (!r.ok) return r.error;
-      storage(tokenKey(code), r.token);
+      const res = await joinRoom(code, name, null);
+      if (!res.ok) return res.error === "offline" ? "You're offline. Check your connection." : res.error;
+      storage(tokenKey(code), res.token);
       storage("sh:name", name);
       setNeedsName(false);
-      setError(null);
+      setLeft(false);
+      accept(res.snapshot);
       return null;
     },
-    [code],
+    [code, accept],
   );
 
-  return { snap, status, error, needsName, kicked, joinWithName };
+  return { snap, offline, error, needsName, left, joinWithName };
 }

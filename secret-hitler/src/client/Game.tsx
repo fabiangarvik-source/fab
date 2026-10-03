@@ -10,7 +10,7 @@ import { Question, Scroll } from "./icons";
 import { LogList, describe } from "./Log";
 import { usePref, useTheme, vibrate } from "./prefs";
 import { RulesContent, sectionForPhase } from "./Rules";
-import { request } from "./socket";
+import { op } from "./api";
 import { playDrumroll, setSoundEnabled } from "./sound";
 import { Button, PartyIcon, Sheet, cx } from "./ui";
 
@@ -165,10 +165,10 @@ export function GameOver({ snap, onHide }: { snap: RoomSnapshot; onHide?: () => 
         <div className="mt-6 flex flex-col gap-2 pb-10">
           {isHost ? (
             <>
-              <Button size="lg" onClick={() => request("playAgain")} data-testid="play-again">
+              <Button size="lg" onClick={() => op(snap.code, { op: "start" })} data-testid="play-again">
                 Play again
               </Button>
-              <Button variant="ghost" onClick={() => request("endGame")} data-testid="back-to-lobby">
+              <Button variant="ghost" onClick={() => op(snap.code, { op: "endGame" })} data-testid="back-to-lobby">
                 Back to lobby
               </Button>
             </>
@@ -208,7 +208,7 @@ export function GameScreen({ snap, reconnecting }: { snap: RoomSnapshot; reconne
   }, [myTurn, game.phase]);
 
   const send = async (a: ClientAction) => {
-    const r = await request("action", a);
+    const r = await op(snap.code, { op: "action", action: a });
     if (!r.ok) {
       setError(r.error);
       setTimeout(() => setError(null), 3500);
@@ -298,7 +298,7 @@ export function GameScreen({ snap, reconnecting }: { snap: RoomSnapshot; reconne
               variant="danger"
               onClick={() => {
                 if (confirm("End this game for everyone and return to the lobby?")) {
-                  void request("endGame");
+                  void op(snap.code, { op: "endGame" });
                   setMenu(false);
                 }
               }}

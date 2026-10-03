@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { storage } from "./socket";
+import { storage } from "./api";
 
 export function usePref(key: string, initial: boolean): [boolean, (v: boolean) => void] {
   const [v, setV] = useState(initial);

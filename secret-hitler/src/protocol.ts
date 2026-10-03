@@ -1,4 +1,4 @@
-// Messages exchanged between the browser and the game server over socket.io.
+// Shapes exchanged between the browser and the API routes.
 
 import type { Action } from "./engine/types";
 import type { GameView } from "./engine/view";
@@ -14,11 +14,12 @@ export interface MemberInfo {
   isBot: boolean;
 }
 
-/** Personalised snapshot pushed to each socket after every change. */
+/** Personalised snapshot: everything this client may know, nothing more. */
 export interface RoomSnapshot {
   code: string;
+  version: number;
   hostId: string;
-  /** This socket's player id, or null for the table screen. */
+  /** This client's player id, or null for the table screen. */
   meId: string | null;
   members: MemberInfo[];
   settings: RoomSettings;
@@ -27,28 +28,20 @@ export interface RoomSnapshot {
   gameNumber: number;
 }
 
-export type ClientAction = DistributiveOmit<Action, "player">;
 type DistributiveOmit<T, K extends keyof never> = T extends unknown ? Omit<T, K> : never;
+export type ClientAction = DistributiveOmit<Action, "player">;
 
-export type Ack<T = object> = (res: ({ ok: true } & T) | { ok: false; error: string }) => void;
+/** Requests a seated player can make (POST /api/rooms/:code with x-player-token). */
+export type RoomOp =
+  | { op: "leave" }
+  | { op: "kick"; playerId: string }
+  | { op: "settings"; settings: Partial<RoomSettings> }
+  | { op: "start" }
+  | { op: "endGame" }
+  | { op: "action"; action: ClientAction }
+  | { op: "addBots"; count: number };
 
-export interface ClientToServer {
-  create: (p: { name: string }, ack: Ack<{ code: string; token: string; playerId: string }>) => void;
-  join: (p: { code: string; name?: string; token?: string }, ack: Ack<{ token: string; playerId: string }>) => void;
-  watch: (p: { code: string }, ack: Ack) => void;
-  leave: (ack: Ack) => void;
-  kick: (p: { playerId: string }, ack: Ack) => void;
-  settings: (p: Partial<RoomSettings>, ack: Ack) => void;
-  start: (ack: Ack) => void;
-  action: (a: ClientAction, ack: Ack) => void;
-  endGame: (ack: Ack) => void;
-  playAgain: (ack: Ack) => void;
-  addBots: (p: { count: number }, ack: Ack) => void;
-}
-
-export interface ServerToClient {
-  room: (snap: RoomSnapshot) => void;
-  kicked: () => void;
-}
+export type ApiResult<T = object> = ({ ok: true } & T) | { ok: false; error: string };
 
 export const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ"; // no I or O
+export const POLL_MS = 1000;
