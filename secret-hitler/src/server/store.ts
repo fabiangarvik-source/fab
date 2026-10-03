@@ -28,8 +28,9 @@ class MemoryStore implements RoomStore {
     return true;
   }
   async replace(room: StoredRoom, expected: number) {
-    const cur = await this.get(room.code);
-    if (!cur || cur.version !== expected) return false;
+    // Check and write synchronously so concurrent callers can't interleave.
+    const s = this.rooms.get(room.code);
+    if (!s || (JSON.parse(s) as StoredRoom).version !== expected) return false;
     this.rooms.set(room.code, JSON.stringify(room));
     return true;
   }
@@ -55,7 +56,10 @@ class PostgresStore implements RoomStore {
         version integer NOT NULL,
         data jsonb NOT NULL,
         updated_at timestamptz NOT NULL DEFAULT now()
-      )`;
+      )`.catch((e) => {
+      this.ready = null; // retry on the next request
+      throw e;
+    });
     return this.ready;
   }
   async get(code: string) {

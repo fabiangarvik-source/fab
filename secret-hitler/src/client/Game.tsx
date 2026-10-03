@@ -65,7 +65,7 @@ export function VoteReveal({ game, onClose }: { game: PublicGame; onClose: () =>
   const name = (id: string) => game.players.find((p) => p.id === id)?.name ?? "?";
   const ja = Object.values(v.votes).filter(Boolean).length;
   return (
-    <div className="fixed inset-0 z-30 flex flex-col items-center justify-center bg-black/80 p-4" onClick={onClose} data-testid="vote-reveal">
+    <div className="fixed inset-0 z-30 flex flex-col items-center justify-center bg-[#0d0b08]/95 p-4 backdrop-blur-sm" onClick={onClose} data-testid="vote-reveal">
       <div className="font-type text-xs tracking-[0.3em] text-gold">THE VOTES ARE IN</div>
       <h2 className="font-display mt-1 text-center text-2xl font-extrabold text-[#f0e7d3]">
         {name(v.president)} &amp; {name(v.chancellor)}

@@ -19,7 +19,7 @@ type Mutator<T> = (room: StoredRoom) => ({ ok: true; room: StoredRoom | null } &
 /** Read-modify-write with compare-and-set; retries when another request won. */
 async function mutate<T extends object>(code: string, fn: Mutator<T>): Promise<({ ok: true; room: StoredRoom | null } & T) | { ok: false; error: string }> {
   const store = getStore();
-  for (let attempt = 0; attempt < 8; attempt++) {
+  for (let attempt = 0; attempt < 25; attempt++) {
     const cur = await store.get(code);
     if (!cur) return { ok: false, error: "No room with that code" };
     const res = fn(structuredClone(cur));
@@ -31,7 +31,7 @@ async function mutate<T extends object>(code: string, fn: Mutator<T>): Promise<(
     }
     res.room.version = cur.version + 1;
     if (await store.replace(res.room, cur.version)) return res;
-    await new Promise((r) => setTimeout(r, 15 + Math.random() * 40));
+    await new Promise((r) => setTimeout(r, 10 + Math.random() * 30 * (attempt + 1)));
   }
   return { ok: false, error: "The room is busy, try again" };
 }

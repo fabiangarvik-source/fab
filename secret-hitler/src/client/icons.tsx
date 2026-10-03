@@ -17,15 +17,16 @@ export const Dove = ({ className, title }: P) =>
     <path d="M3 13.5c2.8.2 5-.6 6.6-2.4L6.4 4.6c3.4.9 5.9 3 7.2 6.3.7-1.9 2.4-3.1 4.4-3.1.9 0 1.5.3 2.1.8l2.4-.5-1.6 1.8c.1.4.1.8.1 1.2 0 3.9-3.3 7.1-7.6 7.1-1.3 0-2.6-.3-3.7-.8L6.6 19.6l.9-3.6C5.7 15.6 4.2 14.7 3 13.5z" />,
   );
 
-/** Fascist: a coiled serpent inside a sharp chevron (fictional emblem). */
+/** Fascist: a serpent inside a ring (fictional emblem). */
 export const Serpent = ({ className, title }: P) =>
   svg(
     title,
     className,
     <>
-      <path d="M12 1.5 22.5 12 12 22.5 1.5 12z" fillOpacity="0.18" />
-      <path d="M15.8 6.2c-1.3-1-3-1.3-4.6-.8-2 .6-3.2 2.5-2.7 4.3.4 1.5 1.9 2.2 3.5 2.4 1.4.2 2.4.7 2.5 1.7.1 1.2-1.1 2-2.6 2-1.3 0-2.4-.5-3.2-1.4l-1.4 1.5c1.2 1.3 2.9 2 4.7 2 2.6 0 4.8-1.6 4.7-4.1-.1-2.2-1.9-3.4-4.3-3.7-1-.1-1.7-.4-1.8-1-.2-.8.4-1.5 1.3-1.7.9-.3 1.9-.1 2.6.5l.6-.4 1.9.4-.2-1.9z" />
-      <circle cx="15.6" cy="6.9" r=".55" fill="var(--bg)" />
+      <circle cx="12" cy="12" r="10.4" fill="none" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M4.6 15.2c1.6-3.6 4.4-3.6 6 0s4.4 3.6 6 0" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" />
+      <path d="M16.2 15.6c.2-2.4 1.3-4.6 3.4-5.6l.9 2.6c-1.3.6-2 1.8-2.3 3.3z" />
+      <path d="M20.3 10.6l1.3-.8M20.5 11.2l1.5.1" stroke="currentColor" strokeWidth=".7" strokeLinecap="round" />
     </>,
   );
 
