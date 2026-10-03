@@ -1,26 +1,25 @@
 /* ============ BETS ============ */
-function viewBets(L){
+/* Betting lives on Today: the weekly King bet up front, month and year folded away. */
+function betsSection(L){
   const avail = L.avail(S.uid);
-  const wallet = h("div",{class:"wallet"},
-    h("div",null, h("div",{class:"label",style:"color:inherit;opacity:.7"},"Your wallet"), h("div",{class:"big mono"}, avail.toLocaleString(), h("span",{style:"font-size:1rem"}," HB"))),
-    h("p",{class:"small",style:"max-width:46ch"}, `Fake money. Real consequences: whoever loses the most on the weekly bet gets the King's punishment. You get ${ALLOW_HB} HB for every day you vote.`));
   const myOpen = L.open.filter(b=>b.uid===S.uid);
-  const hist = (L.hist[S.uid]||[]).slice().reverse().slice(0,15);
-  const slip = h("div",{class:"card"}, h("h3",{style:"margin-bottom:10px"},"Your bet slip"),
-    myOpen.length ? h("div",{class:"stack",style:"gap:8px"}, myOpen.map(b=>h("div",{class:"slip"}, h("span",null,`${b.amt} HB · ${firstNm(b.on)} for ${PERIODS[b.type]}`), h("span",null,`×${b.mult.toFixed(2)} early bird`)))) : h("p",{class:"muted small"},"No open bets. Scared?"),
-    hist.length ? [h("div",{class:"label",style:"margin-top:14px"},"Settled"), hist.map(r=>h("div",{class:"stat"},
-      h("span",{class:"small"}, `${PERIODS[r.per.type]} · ${periodName(r.per)} · ${r.amt} on ${firstNm(r.on)}`),
-      h("span",{class:"mono "+(r.refund?"muted":r.pay>r.amt?"won":"lost")}, r.refund?"refund":r.pay>0?`+${r.pay-r.amt}`:`−${r.amt}`)))] : null);
-  const how = h("details",{class:"card how"}, h("summary",null,"How betting works"),
-    h("ul",null, h("li",null,"Bet on who wins the week, month or year."),
-      h("li",null,"Everyone who picked right splits the whole pot."),
-      h("li",null,"Bet early and your share is bigger. Betting closes on the last day."),
-      h("li",null,"Nobody picked right? Everyone gets their money back.")));
-  return h("div",{class:"stack"}, wallet, h("div",{class:"grid3"}, ["week","month","year"].map(type => futureCard(type, L, avail))), h("div",{class:"grid"}, slip, how));
+  const hist = (L.hist[S.uid]||[]).slice().reverse().slice(0,10);
+  return h("div",{class:"stack"},
+    h("div",{class:"head",style:"margin:8px 0 0"}, h("h2",null,"🎲 Bet on the King"), h("span",{class:"pill"},`${avail.toLocaleString()} HB to bet`)),
+    futureCard("week", L, avail),
+    h("details",{class:"card how"}, h("summary",null,"More bets: Him of the Month and Him of the Year"),
+      h("div",{class:"stack",style:"margin-top:12px"}, futureCard("month", L, avail), futureCard("year", L, avail))),
+    h("details",{class:"card how"}, h("summary",null,`Your bets${myOpen.length ? ` (${myOpen.length} open)` : ""}`),
+      h("div",{class:"stack",style:"gap:8px;margin-top:10px"},
+        myOpen.length ? myOpen.map(b=>h("div",{class:"slip"}, h("span",null,`${b.amt} HB on ${firstNm(b.on)}`), h("span",null, PERIODS[b.type]))) : h("p",{class:"muted small"},"No open bets. Scared?"),
+        hist.length ? [h("div",{class:"label",style:"margin-top:6px"},"Settled"), hist.map(r=>h("div",{class:"stat"},
+          h("span",{class:"small"}, `${PERIODS[r.per.type]} · ${periodName(r.per)} · ${r.amt} on ${firstNm(r.on)}`),
+          h("span",{class:"mono "+(r.refund?"muted":r.pay>r.amt?"won":"lost")}, r.refund?"refund":r.pay>0?`+${r.pay-r.amt}`:`−${r.amt}`)))] : null,
+        h("p",{class:"small muted"},`Fake money, real consequences. Everyone who picked right splits the pot. You get ${ALLOW_HB} HB for every day you vote, and never drop below ${FLOOR_HB}.`))));
 }
 function futureCard(type, L, avail){
   const td = D.td, per = periodOf(type, td), bd = draft.bets[type];
-  const closed = td === per.end, mult = earlyBird(per, td);
+  const closed = !betOpenOn(per, td);
   const open = L.open.filter(b=>b.per.key===per.key), pool = open.reduce((a,b)=>a+b.amt,0);
   const on = {}; for (const b of open) on[b.on] = (on[b.on]||0) + b.amt;
   const st = standings(per.start, per.end).slice(0,5);
@@ -30,17 +29,16 @@ function futureCard(type, L, avail){
     h("div",{class:"label"}, periodName(per)),
     h("h2",{style:"margin:4px 0 8px"}, PERIODS[type]),
     h("div",{class:"btnrow",style:"gap:6px;margin-bottom:10px"},
-      h("span",{class:"pill "+(closed?"closed":"live")}, closed ? "Betting closed" : `Closes in ${fmtDur(betCloseSecs(per, td))}`),
-      h("span",{class:"pill"}, `Pool ${pool.toLocaleString()} HB`),
-      closed ? null : h("span",{class:"pill"}, `Early bird ×${mult.toFixed(2)}`)),
+      h("span",{class:"pill "+(closed?"closed":"live")}, closed ? (type==="week" ? "Closed Wednesday" : "Betting closed") : `Closes in ${fmtDur(betCloseSecs(per, td))}`),
+      h("span",{class:"pill"}, `Pool ${pool.toLocaleString()} HB`)),
     st.some(s=>s.pts>0) ? st.map((s,i)=>h("div",{class:"row"},
       h("div",{class:"rank"+(i===0?" gold":"")}, i+1), avatar(s.uid,"sm"),
-      h("div",{style:"min-width:0"}, h("div",{class:"nm"}, nm(s.uid)), h("div",{class:"sub"}, on[s.uid] ? `${on[s.uid]} HB backing · pays ~${(pool/on[s.uid]).toFixed(1)}×` : "No money on him yet")),
+      h("div",{style:"min-width:0"}, h("div",{class:"nm"}, nm(s.uid)), h("div",{class:"sub"}, whyText(s.br)), on[s.uid] ? h("div",{class:"sub"}, `${on[s.uid]} HB on him · pays ~${(pool/on[s.uid]).toFixed(1)}×`) : null),
       h("div",{class:"pts"}, `${s.pts} pts`))) : h("p",{class:"muted small"},"No points yet. Pure speculation. The best kind."),
     closed ? null : h("form",{style:"margin-top:12px",onsubmit:async e=>{
       e.preventDefault(); err.hidden = true;
       const a = Math.floor(+bd.amt);
-      if (today() === per.end) { err.textContent = "Betting just closed."; err.hidden = false; return; }
+      if (!betOpenOn(per, today())) { err.textContent = "Betting just closed."; err.hidden = false; return; }
       if (!bd.on) { err.textContent = "Pick who you're backing."; err.hidden = false; return; }
       if (!(a >= 1)) { err.textContent = "Bet at least 1 HB, cheapskate."; err.hidden = false; return; }
       if (a > avail) { err.textContent = `You only have ${avail} HB. Broke behavior.`; err.hidden = false; return; }
@@ -131,7 +129,7 @@ function memRanks(){
     h("div",{class:"head"}, h("h2",null, rt==="day" ? "Today's standings" : `${PERIODS[rt]} race`), h("span",{class:"label"}, rt==="day" ? fmtDay(td) : periodName(per))),
     st.map((s,i)=>h("div",{class:"row"},
       h("div",{class:"rank"+(i===0&&s.pts?" gold":"")}, s.pts ? i+1 : "–"), avatar(s.uid),
-      h("div",{style:"min-width:0"}, h("div",{class:"nm"}, nm(s.uid), s.uid===S.uid ? h("span",{class:"sub"}," (you)") : null), h("div",{class:"sub"}, titleFor(trophies(s.uid).day))),
+      h("div",{style:"min-width:0"}, h("div",{class:"nm"}, nm(s.uid), s.uid===S.uid ? h("span",{class:"sub"}," (you)") : null), h("div",{class:"sub"}, whyText(s.br))),
       h("div",{class:"pts"}, `${s.pts} pts`))));
   const cabinet = h("div",{class:"card pink"}, h("h3",{style:"margin-bottom:8px"},"Trophy cabinet"),
     ["year","month","week"].map(type => {
@@ -140,7 +138,7 @@ function memRanks(){
         w.length ? w.map(x=>h("div",{class:"stat"}, h("span",{class:"small"}, periodName(x.per)), h("strong",{class:"small"}, x.winners.map(nm).join(" & ")))) : h("p",{class:"muted small"},"Not awarded yet."));
     }));
   const points = h("div",{class:"card"}, h("h3",{style:"margin-bottom:6px"},"How Him Points work"),
-    [[`+${PTS_VOTE}`,"each vote you get"],[`+${PTS_CROWN}`,"winning the day"],[`+${PTS_QUOTE}`,"each vote on your quote"],[`+${PTS_REACT}`,"each reaction on a moment of you"]].map(([a,b])=>h("div",{class:"stat"}, h("span",null,b), h("span",{class:"mono"},a))));
+    [[`+${PTS_VOTE}`,"each vote you get"],[`+${PTS_DAY}`,"winning the day"],[`+${PTS_QUOTE}`,"the day's best quote is yours"],[`+${PTS_MOMENT}`,"the day's best moment is of you"]].map(([a,b])=>h("div",{class:"stat"}, h("span",null,b), h("span",{class:"mono"},a))));
   return h("div",{class:"grid"}, h("div",{class:"stack"}, board, points), h("div",{class:"stack"}, cabinet));
 }
 
@@ -272,7 +270,7 @@ function render(){
       h("h2",{style:"margin-bottom:6px"},"Make your profile"),
       h("p",{class:"muted",style:"margin-bottom:14px"},"Name and a selfie, so your friends know who to roast."),
       profileForm(null)));
-  else v = ({ today:viewToday, moments:viewMoments, quotes:viewQuotes, bets:viewBets, memories:viewMemories, me:viewMe }[S.tab] || viewToday)(L);
+  else v = ({ today:viewToday, moments:viewMoments, quotes:viewQuotes, memories:viewMemories, me:viewMe }[S.tab] || viewToday)(L);
   main.replaceChildren(v);
   if (isMember(S.uid)) maybeCeremony();
 }

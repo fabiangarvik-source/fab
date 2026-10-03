@@ -2,7 +2,7 @@
 /* ============ constants ============ */
 const TZ = "America/New_York";
 const START_HB = 1000, ALLOW_HB = 25, FLOOR_HB = 100;
-const PTS_VOTE = 3, PTS_CROWN = 5, PTS_QUOTE = 1, PTS_REACT = 1;
+const PTS_VOTE = 1, PTS_DAY = 3, PTS_QUOTE = 2, PTS_MOMENT = 2;
 const MAX_ITEMS = 1000, NOMS_PER_DAY = 3;
 const COLS = ["profiles","votes","quotes","qvotes","vetoes","bets","photos","reacts","noms","appeals","verdicts","comments","reign"];
 
@@ -79,8 +79,9 @@ function periodName(per){
   if (per.type === "month") return fmtMonth(per.start);
   return per.start.slice(0,4);
 }
-function betCloseSecs(per, td){ return (dayIndex(per.end) - dayIndex(td) - 1) * 86400 + secsToMidnight(); }
-function earlyBird(per, day){ const len = dayIndex(per.end)-dayIndex(per.start)+1, rem = dayIndex(per.end)-dayIndex(day)+1; return 1 + rem/len; }
+/* Week bets close at midnight on Wednesday; month and year bets close when the last day starts. */
+function betOpenOn(per, day){ return per.type === "week" ? dayIndex(day) - dayIndex(per.start) <= 2 : day < per.end; }
+function betCloseSecs(per, td){ const last = per.type === "week" ? addDays(per.start, 2) : addDays(per.end, -1); return (dayIndex(last) - dayIndex(td)) * 86400 + secsToMidnight(); }
 
 /* ============ dom ============ */
 function h(tag, attrs, ...kids){
@@ -148,11 +149,11 @@ const pick = (arr, seed) => { let x = 0; for (const c of String(seed)) x = (x*31
 
 /* ============ state + network ============ */
 const S = { uid:null, email:"", tab:"today", rankTab:"week", memTab:"roll", loaded:new Set(), roasts:{}, push:"unknown",
-  openComments:new Set(), cdraft:{}, showNom:false, showAppeal:false };
+  openComments:new Set(), cdraft:{}, reasonFor:null, kingOpen:false, showAppeal:false };
 for (const c of COLS) S[c] = {};
 const draft = { moment:{ img:null, about:"", caption:"" }, quote:{ about:"", text:"" }, nom:{ about:"", reason:"" },
   bets:{ week:{on:"",amt:""}, month:{on:"",amt:""}, year:{on:"",amt:""} } };
-try { const t = localStorage.getItem("himmest.tab"); if (t) S.tab = t; } catch {}
+try { const t = localStorage.getItem("himmest.tab"); if (t && t !== "bets") S.tab = t; } catch {}
 let D = null, V = "", authed = null;
 
 async function api(path, opts = {}){
@@ -218,10 +219,13 @@ function derive(){
 
   const nominated = {};                     // day -> uid -> [noms]
   for (const n of noms) ((nominated[n.day] ||= {})[n.about] ||= []).push(n);
+  const accused = {};                       // day -> uid -> true (charged or voted for)
+  for (const [d, m] of Object.entries(nominated)) for (const u of Object.keys(m)) (accused[d] ||= {})[u] = true;
+  for (const [voter, v] of Object.entries(S.votes)) if (isMember(voter)) for (const [d, t] of Object.entries(v?.days||{})) if (isMember(t) && t !== voter) (accused[d] ||= {})[t] = true;
   const appeals = {};                       // day -> uid -> {text, ts}
   for (const [uid, doc] of Object.entries(S.appeals)) {
     if (!isMember(uid)) continue;
-    for (const [d, a] of Object.entries(doc?.days||{})) if (a && typeof a.text === "string" && nominated[d]?.[uid]) (appeals[d] ||= {})[uid] = { text:a.text.slice(0,200), ts:a.ts };
+    for (const [d, a] of Object.entries(doc?.days||{})) if (a && typeof a.text === "string" && accused[d]?.[uid]) (appeals[d] ||= {})[uid] = { text:a.text.slice(0,200), ts:a.ts };
   }
   const verdicts = {};                      // day -> uid -> {guilty, innocent, mine}
   for (const [voter, doc] of Object.entries(S.verdicts)) {
@@ -234,22 +238,24 @@ function derive(){
   const acquitted = (d, u) => { const t = verdicts[d]?.[u]; return !!(t && t.innocent > t.guilty); };
 
   const qByKey = new Map(quotes.map(q=>[q.key,q])), pByKey = new Map(photos.map(p=>[p.key,p]));
-  const pts = {}, add = (d,u,n) => { (pts[d] ||= {}); pts[d][u] = (pts[d][u]||0) + n; };
+  /* Him Points: 1 per vote you get, +3 for winning the day, +2 for the day's best quote, +2 for the day's best moment. */
+  const pts = {}, br = {};
+  const add = (d,u,n,kind) => { (pts[d] ||= {}); pts[d][u] = (pts[d][u]||0) + n; const b = ((br[d] ||= {})[u] ||= { votes:0, wins:0, quotes:0, moments:0 }); b[kind]++; };
   const dv = {}, receipts = {};
   for (const [voter, v] of Object.entries(S.votes)) {
     if (!isMember(voter)) continue;
     for (const [d, t] of Object.entries(v?.days||{})) {
-      if (!isMember(t) || t === voter || d > td || !nominated[d]?.[t]) continue;
+      if (!isMember(t) || t === voter || d > td) continue;
       (receipts[d] ||= []).push({ voter, target:t });
       if (acquitted(d, t)) continue;
-      (dv[d] ||= {}); dv[d][t] = (dv[d][t]||0) + 1; add(d, t, PTS_VOTE);
+      (dv[d] ||= {}); dv[d][t] = (dv[d][t]||0) + 1; add(d, t, PTS_VOTE, "votes");
     }
   }
   const dw = {};
   for (const [d, t] of Object.entries(dv)) {
     const max = Math.max(0, ...Object.values(t));
     dw[d] = max > 0 ? new Set(Object.keys(t).filter(k=>t[k]===max)) : new Set();
-    if (d < td) for (const w of dw[d]) add(d, w, PTS_CROWN);
+    if (d < td) for (const w of dw[d]) add(d, w, PTS_DAY, "wins");
   }
   const qv = {};
   for (const [voter, v] of Object.entries(S.qvotes)) {
@@ -257,7 +263,7 @@ function derive(){
     for (const [d, k] of Object.entries(v?.days||{})) {
       const q = qByKey.get(k);
       if (!q || q.day !== d || voter === q.author || voter === q.about) continue;
-      qv[k] = (qv[k]||0) + 1; add(d, q.about, PTS_QUOTE);
+      qv[k] = (qv[k]||0) + 1;
     }
   }
   const rc = {};
@@ -267,21 +273,42 @@ function derive(){
       const p = pByKey.get(k);
       if (!p || !REACTS[type] || who === p.about) continue;
       const r = (rc[k] ||= { total:0 }); r[type] = (r[type]||0) + 1; r.total++;
-      add(p.day, p.about, PTS_REACT);
     }
   }
+  /* Best quote and best moment of each finished day earn a bonus (ties all win). */
+  const bestOf = (list, score, kind, bonus) => {
+    const byDay = {}; for (const x of list) if (x.day < td) (byDay[x.day] ||= []).push(x);
+    for (const [d, xs] of Object.entries(byDay)) {
+      const max = Math.max(0, ...xs.map(score)); if (!max) continue;
+      const winners = new Set(xs.filter(x=>score(x)===max).map(x=>x.about));
+      for (const u of winners) add(d, u, bonus, kind);
+    }
+  };
+  bestOf(quotes, q=>qv[q.key]||0, "quotes", PTS_QUOTE);
+  bestOf(photos, p=>rc[p.key]?.total||0, "moments", PTS_MOMENT);
   const comments = {};
   for (const [author, doc] of Object.entries(S.comments)) {
     if (!isMember(author)) continue;
     for (const c of items(doc, 600)) if (c && typeof c.text === "string" && typeof c.on === "string") (comments[c.on] ||= []).push({ ...c, text:c.text.slice(0,200), author });
   }
   for (const list of Object.values(comments)) list.sort((a,b)=>(a.ts||0)-(b.ts||0));
-  return { td, quotes, photos, noms, nominated, appeals, verdicts, acquitted, pts, dv, dw, receipts, qv, rc, comments };
+  return { td, quotes, photos, noms, nominated, accused, appeals, verdicts, acquitted, pts, br, dv, dw, receipts, qv, rc, comments };
 }
 function standings(start, end){
-  const tot = {}; for (const u of members()) tot[u] = 0;
-  for (const [d, m] of Object.entries(D.pts)) if (d >= start && d <= end) for (const [u,n] of Object.entries(m)) if (u in tot) tot[u] += n;
-  return members().sort((a,b)=>tot[b]-tot[a] || nm(a).localeCompare(nm(b))).map(u=>({ uid:u, pts:tot[u] }));
+  const tot = {}, b = {}; for (const u of members()) { tot[u] = 0; b[u] = { votes:0, wins:0, quotes:0, moments:0 }; }
+  for (const [d, m] of Object.entries(D.pts)) if (d >= start && d <= end) for (const [u,n] of Object.entries(m)) if (u in tot) {
+    tot[u] += n; const x = D.br[d][u]; for (const k in x) b[u][k] += x[k];
+  }
+  return members().sort((a,c)=>tot[c]-tot[a] || b[c].votes-b[a].votes || nm(a).localeCompare(nm(c))).map(u=>({ uid:u, pts:tot[u], br:b[u] }));
+}
+/* "9 votes · 1 day win · 1 best quote" */
+function whyText(br){
+  const parts = [];
+  if (br.votes) parts.push(`${br.votes} vote${br.votes===1?"":"s"}`);
+  if (br.wins) parts.push(`${br.wins} day win${br.wins===1?"":"s"}`);
+  if (br.quotes) parts.push(`${br.quotes} best quote${br.quotes===1?"":"s"}`);
+  if (br.moments) parts.push(`${br.moments} best moment${br.moments===1?"":"s"}`);
+  return parts.join(" · ") || "nothing yet";
 }
 function winnersOfPeriod(per){
   const st = standings(per.start, per.end); const max = st[0]?.pts || 0;
@@ -324,8 +351,8 @@ function ledger(){
     for (const b of items(doc)) {
       if (!b || !PERIODS[b.type] || typeof b.day !== "string" || b.day > td || !isMember(b.on)) continue;
       const amt = Math.floor(+b.amt || 0); if (amt < 1) continue;
-      const per = periodOf(b.type, b.day); if (b.day === per.end) continue;
-      (groups[per.key] ||= { per, list:[] }).list.push({ uid:u, on:b.on, amt, mult:earlyBird(per, b.day), type:b.type, k:b.k });
+      const per = periodOf(b.type, b.day); if (!betOpenOn(per, b.day)) continue;
+      (groups[per.key] ||= { per, list:[] }).list.push({ uid:u, on:b.on, amt, type:b.type, k:b.k });
     }
   }
   const clamp = list => {
@@ -337,9 +364,9 @@ function ledger(){
   for (const g of Object.values(groups).filter(g=>g.per.end < td).sort((a,b)=>a.per.end.localeCompare(b.per.end))) {
     floor();
     const list = clamp(g.list), pool = list.reduce((a,b)=>a+b.amt,0), win = new Set(winnersOfPeriod(g.per));
-    const W = list.filter(b=>win.has(b.on)).reduce((a,b)=>a+b.amt*b.mult,0);
+    const W = list.filter(b=>win.has(b.on)).reduce((a,b)=>a+b.amt,0);
     for (const b of list) {
-      const pay = W === 0 ? b.amt : (win.has(b.on) ? Math.round(b.amt*b.mult/W*pool) : 0);
+      const pay = W === 0 ? b.amt : (win.has(b.on) ? Math.round(b.amt/W*pool) : 0);
       bal[b.uid] += pay - b.amt;
       hist[b.uid].push({ per:g.per, on:b.on, amt:b.amt, pay, refund:W===0 });
       if (g.per.type === "week") { const m = (weekNet[g.per.key] ||= {}); m[b.uid] = (m[b.uid]||0) + pay - b.amt; }

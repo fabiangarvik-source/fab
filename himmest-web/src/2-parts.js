@@ -46,7 +46,7 @@ function personPicker(selected, onPick, label, includeSelf){
 async function veto(key, msg){ const keys = [...(mine("vetoes").keys||[]), key].slice(-1000); if (await write("vetoes",{keys})) toast(msg); }
 
 /* ============ chrome ============ */
-const TABS = [["today","Today"],["moments","Moments"],["quotes","Quotes"],["bets","Bets"],["memories","Memories"]];
+const TABS = [["today","Today"],["moments","Moments"],["quotes","Quotes"],["memories","Memories"]];
 function go(tab){ S.tab = tab; try { localStorage.setItem("himmest.tab", tab); } catch {} render(); scrollTo({top:0}); }
 function renderTabs(){
   const nav = document.getElementById("tabs"); nav.replaceChildren();

@@ -4,7 +4,7 @@
 /* ============ constants ============ */
 const TZ = "America/New_York";
 const START_HB = 1000, ALLOW_HB = 25, FLOOR_HB = 100;
-const PTS_VOTE = 3, PTS_CROWN = 5, PTS_QUOTE = 1, PTS_REACT = 1;
+const PTS_VOTE = 1, PTS_DAY = 3, PTS_QUOTE = 2, PTS_MOMENT = 2;
 const MAX_ITEMS = 1000, NOMS_PER_DAY = 3;
 const COLS = ["profiles","votes","quotes","qvotes","vetoes","bets","photos","reacts","noms","appeals","verdicts","comments","reign"];
 
@@ -81,8 +81,9 @@ function periodName(per){
   if (per.type === "month") return fmtMonth(per.start);
   return per.start.slice(0,4);
 }
-function betCloseSecs(per, td){ return (dayIndex(per.end) - dayIndex(td) - 1) * 86400 + secsToMidnight(); }
-function earlyBird(per, day){ const len = dayIndex(per.end)-dayIndex(per.start)+1, rem = dayIndex(per.end)-dayIndex(day)+1; return 1 + rem/len; }
+/* Week bets close at midnight on Wednesday; month and year bets close when the last day starts. */
+function betOpenOn(per, day){ return per.type === "week" ? dayIndex(day) - dayIndex(per.start) <= 2 : day < per.end; }
+function betCloseSecs(per, td){ const last = per.type === "week" ? addDays(per.start, 2) : addDays(per.end, -1); return (dayIndex(last) - dayIndex(td)) * 86400 + secsToMidnight(); }
 
 /* ============ dom ============ */
 function h(tag, attrs, ...kids){
@@ -150,11 +151,11 @@ const pick = (arr, seed) => { let x = 0; for (const c of String(seed)) x = (x*31
 
 /* ============ state + network ============ */
 const S = { uid:null, email:"", tab:"today", rankTab:"week", memTab:"roll", loaded:new Set(), roasts:{}, push:"unknown",
-  openComments:new Set(), cdraft:{}, showNom:false, showAppeal:false };
+  openComments:new Set(), cdraft:{}, reasonFor:null, kingOpen:false, showAppeal:false };
 for (const c of COLS) S[c] = {};
 const draft = { moment:{ img:null, about:"", caption:"" }, quote:{ about:"", text:"" }, nom:{ about:"", reason:"" },
   bets:{ week:{on:"",amt:""}, month:{on:"",amt:""}, year:{on:"",amt:""} } };
-try { const t = localStorage.getItem("himmest.tab"); if (t) S.tab = t; } catch {}
+try { const t = localStorage.getItem("himmest.tab"); if (t && t !== "bets") S.tab = t; } catch {}
 let D = null, V = "", authed = null;
 
 async function api(path, opts = {}){
@@ -220,10 +221,13 @@ function derive(){
 
   const nominated = {};                     // day -> uid -> [noms]
   for (const n of noms) ((nominated[n.day] ||= {})[n.about] ||= []).push(n);
+  const accused = {};                       // day -> uid -> true (charged or voted for)
+  for (const [d, m] of Object.entries(nominated)) for (const u of Object.keys(m)) (accused[d] ||= {})[u] = true;
+  for (const [voter, v] of Object.entries(S.votes)) if (isMember(voter)) for (const [d, t] of Object.entries(v?.days||{})) if (isMember(t) && t !== voter) (accused[d] ||= {})[t] = true;
   const appeals = {};                       // day -> uid -> {text, ts}
   for (const [uid, doc] of Object.entries(S.appeals)) {
     if (!isMember(uid)) continue;
-    for (const [d, a] of Object.entries(doc?.days||{})) if (a && typeof a.text === "string" && nominated[d]?.[uid]) (appeals[d] ||= {})[uid] = { text:a.text.slice(0,200), ts:a.ts };
+    for (const [d, a] of Object.entries(doc?.days||{})) if (a && typeof a.text === "string" && accused[d]?.[uid]) (appeals[d] ||= {})[uid] = { text:a.text.slice(0,200), ts:a.ts };
   }
   const verdicts = {};                      // day -> uid -> {guilty, innocent, mine}
   for (const [voter, doc] of Object.entries(S.verdicts)) {
@@ -236,22 +240,24 @@ function derive(){
   const acquitted = (d, u) => { const t = verdicts[d]?.[u]; return !!(t && t.innocent > t.guilty); };
 
   const qByKey = new Map(quotes.map(q=>[q.key,q])), pByKey = new Map(photos.map(p=>[p.key,p]));
-  const pts = {}, add = (d,u,n) => { (pts[d] ||= {}); pts[d][u] = (pts[d][u]||0) + n; };
+  /* Him Points: 1 per vote you get, +3 for winning the day, +2 for the day's best quote, +2 for the day's best moment. */
+  const pts = {}, br = {};
+  const add = (d,u,n,kind) => { (pts[d] ||= {}); pts[d][u] = (pts[d][u]||0) + n; const b = ((br[d] ||= {})[u] ||= { votes:0, wins:0, quotes:0, moments:0 }); b[kind]++; };
   const dv = {}, receipts = {};
   for (const [voter, v] of Object.entries(S.votes)) {
     if (!isMember(voter)) continue;
     for (const [d, t] of Object.entries(v?.days||{})) {
-      if (!isMember(t) || t === voter || d > td || !nominated[d]?.[t]) continue;
+      if (!isMember(t) || t === voter || d > td) continue;
       (receipts[d] ||= []).push({ voter, target:t });
       if (acquitted(d, t)) continue;
-      (dv[d] ||= {}); dv[d][t] = (dv[d][t]||0) + 1; add(d, t, PTS_VOTE);
+      (dv[d] ||= {}); dv[d][t] = (dv[d][t]||0) + 1; add(d, t, PTS_VOTE, "votes");
     }
   }
   const dw = {};
   for (const [d, t] of Object.entries(dv)) {
     const max = Math.max(0, ...Object.values(t));
     dw[d] = max > 0 ? new Set(Object.keys(t).filter(k=>t[k]===max)) : new Set();
-    if (d < td) for (const w of dw[d]) add(d, w, PTS_CROWN);
+    if (d < td) for (const w of dw[d]) add(d, w, PTS_DAY, "wins");
   }
   const qv = {};
   for (const [voter, v] of Object.entries(S.qvotes)) {
@@ -259,7 +265,7 @@ function derive(){
     for (const [d, k] of Object.entries(v?.days||{})) {
       const q = qByKey.get(k);
       if (!q || q.day !== d || voter === q.author || voter === q.about) continue;
-      qv[k] = (qv[k]||0) + 1; add(d, q.about, PTS_QUOTE);
+      qv[k] = (qv[k]||0) + 1;
     }
   }
   const rc = {};
@@ -269,21 +275,42 @@ function derive(){
       const p = pByKey.get(k);
       if (!p || !REACTS[type] || who === p.about) continue;
       const r = (rc[k] ||= { total:0 }); r[type] = (r[type]||0) + 1; r.total++;
-      add(p.day, p.about, PTS_REACT);
     }
   }
+  /* Best quote and best moment of each finished day earn a bonus (ties all win). */
+  const bestOf = (list, score, kind, bonus) => {
+    const byDay = {}; for (const x of list) if (x.day < td) (byDay[x.day] ||= []).push(x);
+    for (const [d, xs] of Object.entries(byDay)) {
+      const max = Math.max(0, ...xs.map(score)); if (!max) continue;
+      const winners = new Set(xs.filter(x=>score(x)===max).map(x=>x.about));
+      for (const u of winners) add(d, u, bonus, kind);
+    }
+  };
+  bestOf(quotes, q=>qv[q.key]||0, "quotes", PTS_QUOTE);
+  bestOf(photos, p=>rc[p.key]?.total||0, "moments", PTS_MOMENT);
   const comments = {};
   for (const [author, doc] of Object.entries(S.comments)) {
     if (!isMember(author)) continue;
     for (const c of items(doc, 600)) if (c && typeof c.text === "string" && typeof c.on === "string") (comments[c.on] ||= []).push({ ...c, text:c.text.slice(0,200), author });
   }
   for (const list of Object.values(comments)) list.sort((a,b)=>(a.ts||0)-(b.ts||0));
-  return { td, quotes, photos, noms, nominated, appeals, verdicts, acquitted, pts, dv, dw, receipts, qv, rc, comments };
+  return { td, quotes, photos, noms, nominated, accused, appeals, verdicts, acquitted, pts, br, dv, dw, receipts, qv, rc, comments };
 }
 function standings(start, end){
-  const tot = {}; for (const u of members()) tot[u] = 0;
-  for (const [d, m] of Object.entries(D.pts)) if (d >= start && d <= end) for (const [u,n] of Object.entries(m)) if (u in tot) tot[u] += n;
-  return members().sort((a,b)=>tot[b]-tot[a] || nm(a).localeCompare(nm(b))).map(u=>({ uid:u, pts:tot[u] }));
+  const tot = {}, b = {}; for (const u of members()) { tot[u] = 0; b[u] = { votes:0, wins:0, quotes:0, moments:0 }; }
+  for (const [d, m] of Object.entries(D.pts)) if (d >= start && d <= end) for (const [u,n] of Object.entries(m)) if (u in tot) {
+    tot[u] += n; const x = D.br[d][u]; for (const k in x) b[u][k] += x[k];
+  }
+  return members().sort((a,c)=>tot[c]-tot[a] || b[c].votes-b[a].votes || nm(a).localeCompare(nm(c))).map(u=>({ uid:u, pts:tot[u], br:b[u] }));
+}
+/* "9 votes · 1 day win · 1 best quote" */
+function whyText(br){
+  const parts = [];
+  if (br.votes) parts.push(`${br.votes} vote${br.votes===1?"":"s"}`);
+  if (br.wins) parts.push(`${br.wins} day win${br.wins===1?"":"s"}`);
+  if (br.quotes) parts.push(`${br.quotes} best quote${br.quotes===1?"":"s"}`);
+  if (br.moments) parts.push(`${br.moments} best moment${br.moments===1?"":"s"}`);
+  return parts.join(" · ") || "nothing yet";
 }
 function winnersOfPeriod(per){
   const st = standings(per.start, per.end); const max = st[0]?.pts || 0;
@@ -326,8 +353,8 @@ function ledger(){
     for (const b of items(doc)) {
       if (!b || !PERIODS[b.type] || typeof b.day !== "string" || b.day > td || !isMember(b.on)) continue;
       const amt = Math.floor(+b.amt || 0); if (amt < 1) continue;
-      const per = periodOf(b.type, b.day); if (b.day === per.end) continue;
-      (groups[per.key] ||= { per, list:[] }).list.push({ uid:u, on:b.on, amt, mult:earlyBird(per, b.day), type:b.type, k:b.k });
+      const per = periodOf(b.type, b.day); if (!betOpenOn(per, b.day)) continue;
+      (groups[per.key] ||= { per, list:[] }).list.push({ uid:u, on:b.on, amt, type:b.type, k:b.k });
     }
   }
   const clamp = list => {
@@ -339,9 +366,9 @@ function ledger(){
   for (const g of Object.values(groups).filter(g=>g.per.end < td).sort((a,b)=>a.per.end.localeCompare(b.per.end))) {
     floor();
     const list = clamp(g.list), pool = list.reduce((a,b)=>a+b.amt,0), win = new Set(winnersOfPeriod(g.per));
-    const W = list.filter(b=>win.has(b.on)).reduce((a,b)=>a+b.amt*b.mult,0);
+    const W = list.filter(b=>win.has(b.on)).reduce((a,b)=>a+b.amt,0);
     for (const b of list) {
-      const pay = W === 0 ? b.amt : (win.has(b.on) ? Math.round(b.amt*b.mult/W*pool) : 0);
+      const pay = W === 0 ? b.amt : (win.has(b.on) ? Math.round(b.amt/W*pool) : 0);
       bal[b.uid] += pay - b.amt;
       hist[b.uid].push({ per:g.per, on:b.on, amt:b.amt, pay, refund:W===0 });
       if (g.per.type === "week") { const m = (weekNet[g.per.key] ||= {}); m[b.uid] = (m[b.uid]||0) + pay - b.amt; }
@@ -404,7 +431,7 @@ function personPicker(selected, onPick, label, includeSelf){
 async function veto(key, msg){ const keys = [...(mine("vetoes").keys||[]), key].slice(-1000); if (await write("vetoes",{keys})) toast(msg); }
 
 /* ============ chrome ============ */
-const TABS = [["today","Today"],["moments","Moments"],["quotes","Quotes"],["bets","Bets"],["memories","Memories"]];
+const TABS = [["today","Today"],["moments","Moments"],["quotes","Quotes"],["memories","Memories"]];
 function go(tab){ S.tab = tab; try { localStorage.setItem("himmest.tab", tab); } catch {} render(); scrollTo({top:0}); }
 function renderTabs(){
   const nav = document.getElementById("tabs"); nav.replaceChildren();
@@ -573,8 +600,7 @@ function pushCard(){
 function commentary(){
   const t = D.dv[D.td] || {}, ids = Object.keys(t).sort((a,b)=>t[b]-t[a]);
   const charged = Object.keys(D.nominated[D.td] || {}).length;
-  if (!charged) return "Zero nominations. Either you all got smarter overnight, or you're cowards. It's the second one.";
-  if (!ids.length) return `${charged} ${charged===1?"suspect":"suspects"} charged and nobody has voted. Do your civic duty.`;
+  if (!ids.length) return charged ? `${charged} ${charged===1?"suspect":"suspects"} charged and nobody has voted. Do your civic duty.` : "Zero votes. Either you all got smarter overnight, or you're cowards. It's the second one.";
   const [a, b] = ids;
   if (b && t[a] === t[b]) return `Dead heat between ${firstNm(a)} and ${firstNm(b)}. Nobody has thought this hard all semester.`;
   return pick([
@@ -630,35 +656,51 @@ function kingCard(L){
     !isKing && !law ? h("p",{class:"small muted"},`Waiting on ${firstNm(kings[0])} to decree something. Any day now, Your Majesty.`) : null);
 }
 
-function nominateCard(){
-  const dn = draft.nom, td = D.td;
-  const mineToday = D.noms.filter(n=>n.author===S.uid && n.day===td).length;
-  if (!S.showNom) return h("button",{class:"btn huge pop",onclick:()=>{ S.showNom = true; render(); }},"⚖️ Nominate a him");
-  const err = h("div",{class:"err",hidden:true});
-  return h("div",{class:"card loud"},
-    h("div",{class:"head"}, h("h2",null,"Who did something dumb?"), h("button",{class:"btn ghost",onclick:()=>{ S.showNom=false; render(); }},"Close")),
-    h("form",{onsubmit:async e=>{
-      e.preventDefault(); err.hidden = true;
-      if (mineToday >= NOMS_PER_DAY) { err.textContent = `You've used your ${NOMS_PER_DAY} nominations today. Calm down, prosecutor.`; err.hidden = false; return; }
-      if (!dn.about) { err.textContent = "Tap who you're accusing."; err.hidden = false; return; }
-      const reason = dn.reason.trim();
-      if (reason.length < 4) { err.textContent = "Say what he did. \"Being dumb\" is not a charge, it's a lifestyle."; err.hidden = false; return; }
-      const list = items(mine("noms"), MAX_ITEMS-1); list.push({ k:rid(), day:td, about:dn.about, reason:reason.slice(0,140), ts:Date.now() });
-      const who = dn.about;
-      if (await write("noms",{ items:list })) { draft.nom = { about:"", reason:"" }; S.showNom = false; toast(`${firstNm(who)} has been charged. Let the people decide.`); confetti(); render(); }
-    }},
-      h("div",{class:"field"}, h("span",{class:"label"},"The accused"), personPicker(dn.about, u=>{ dn.about=u; render(); }, "Who are you nominating")),
-      h("div",{class:"field"}, h("label",{class:"label",for:"n-reason"},"The charge"),
-        h("input",{id:"n-reason",maxlength:"140",value:dn.reason,placeholder:"Tried to pay for kebab with his student ID",oninput:e=>dn.reason=e.target.value})),
-      err, h("button",{class:"btn primary",type:"submit"},"File the charge"),
-      h("p",{class:"small muted"},`${NOMS_PER_DAY - mineToday} nominations left today.`)));
+/* The King as a one-line strip; tap to open the full card. The King himself sees the full card until he decrees. */
+function kingStrip(L){
+  const per = periodOf("week", D.td), { kings, law } = reignFor(per);
+  const lastWeek = periodOf("week", addDays(per.start, -1)), broke = L.brokest(lastWeek.key), lastLaw = reignFor(lastWeek).law;
+  const mustOpen = kings.includes(S.uid) && !law;
+  if (S.kingOpen || mustOpen) return h("div",{class:"stack",style:"gap:8px"}, kingCard(L),
+    mustOpen ? null : h("button",{class:"linkbtn",onclick:()=>{ S.kingOpen = false; render(); }},"Hide the King"));
+  return h("button",{class:"kingstrip",onclick:()=>{ S.kingOpen = true; render(); }},
+    kings.length ? avatar(kings[0],"sm") : h("span",{"aria-hidden":"true",style:"font-size:1.3rem"},"👑"),
+    h("span",{class:"ks-text"},
+      h("b",null, kings.length ? `King ${kings.map(firstNm).join(" & ")}` : "No King yet"),
+      h("span",null, law?.punishment ? `⚖️ Loser this week: ${law.punishment}` : kings.length ? "No decree yet. Weak." : "Win the week to take the crown"),
+      lastLaw?.punishment && broke ? h("span",null, `🧾 ${firstNm(broke.uid)} owes: ${lastLaw.punishment}`) : null),
+    h("span",{class:"ks-more","aria-hidden":"true"},"›"));
 }
 
-function nomCard(uid, t, top, myVote){
-  const td = D.td, charges = D.nominated[td][uid], n = t[uid]||0, self = uid===S.uid, picked = myVote===uid;
+const CHARGE_IDEAS = ["Pushed a pull door","Said something unhinged","Got lost on campus","Microwave crime","Lost his phone while holding it"];
+
+/* After you vote: "What did he do?" Skippable, but only charges get roasted and saved in Memories. */
+function reasonCard(){
+  const uid = S.reasonFor; if (!uid || !isMember(uid)) return null;
+  const dn = draft.nom, err = h("div",{class:"err",hidden:true});
+  const inp = h("input",{id:"n-reason",maxlength:"140",value:dn.reason,placeholder:"Tried to pay for kebab with his student ID",oninput:e=>dn.reason=e.target.value});
+  const save = async reason => {
+    reason = (reason || "").trim();
+    if (reason.length < 3) { err.textContent = "Say what he did, or skip."; err.hidden = false; return; }
+    const mineToday = D.noms.filter(n=>n.author===S.uid && n.day===D.td).length;
+    if (mineToday >= NOMS_PER_DAY) { toast(`You've filed ${NOMS_PER_DAY} charges today. Calm down, prosecutor.`); S.reasonFor = null; render(); return; }
+    const list = items(mine("noms"), MAX_ITEMS-1); list.push({ k:rid(), day:D.td, about:uid, reason:reason.slice(0,140), ts:Date.now() });
+    if (await write("noms",{ items:list })) { draft.nom = { about:"", reason:"" }; S.reasonFor = null; toast(`Charge filed against ${firstNm(uid)}. It's on the record forever.`); render(); }
+  };
+  return h("div",{class:"card pink reason"},
+    h("div",{style:"display:flex;align-items:center;gap:10px"}, avatar(uid), h("h3",null,`What did ${firstNm(uid)} do?`)),
+    h("div",{class:"chips"}, CHARGE_IDEAS.map(c=>h("button",{type:"button",class:"chip",onclick:()=>save(c)}, c))),
+    h("form",{class:"cform",onsubmit:e=>{ e.preventDefault(); save(dn.reason); }}, inp, h("button",{class:"btn primary",type:"submit"},"File it")),
+    err,
+    h("div",{class:"btnrow",style:"justify-content:space-between"},
+      h("span",{class:"small muted"},"Charges get roasted and saved in Memories."),
+      h("button",{class:"btn ghost",onclick:()=>{ S.reasonFor = null; draft.nom = { about:"", reason:"" }; render(); }},"Skip")));
+}
+
+function suspectCard(uid, t, top, myVote){
+  const td = D.td, charges = D.nominated[td]?.[uid] || [], n = t[uid]||0, self = uid===S.uid, picked = myVote===uid;
   const appeal = D.appeals[td]?.[uid], verdict = D.verdicts[td]?.[uid] || { guilty:0, innocent:0 };
   const acquitted = D.acquitted(td, uid), myVerdict = mine("verdicts").days?.[td]?.[uid];
-  const first = charges[0];
   const trial = appeal ? h("div",{class:"trialbox"},
     h("div",{class:"head",style:"margin:0"}, h("span",{class:"stamp "+(acquitted?"free":"trial")}, acquitted ? "ACQUITTED (for now)" : "ON TRIAL"), h("span",{class:"mono small"}, `${verdict.guilty} guilty · ${verdict.innocent} innocent`)),
     h("div",{class:"defense"}, `His defense: "${appeal.text}"`),
@@ -672,14 +714,15 @@ function nomCard(uid, t, top, myVote){
     n && n===top && !acquitted ? h("span",{class:"sticker lead"},"LEADING") : null,
     h("div",{class:"top"}, avatar(uid,"lg"),
       h("div",{style:"min-width:0"}, h("div",{class:"nm",style:"font-size:1.1rem"}, nm(uid), self ? " (you)" : ""),
-        h("div",{class:"sub"}, `${charges.length} charge${charges.length===1?"":"s"}`), brainMeter(uid)),
+        h("div",{class:"sub"}, charges.length ? `${charges.length} charge${charges.length===1?"":"s"}` : "No charges filed"), brainMeter(uid)),
       h("div",{class:"count"}, h("div",{class:"votes"}, acquitted ? "–" : n), h("div",{class:"label"}, n===1?"vote":"votes"))),
-    h("div",{class:"charges"}, charges.map(c=>h("div",{class:"charge"}, h("q",null,c.reason), h("div",{class:"by"},`filed by ${firstNm(c.author)}`)))),
-    roast(`nom:${first.key}`, "nom", { name:firstNm(uid), text:charges.map(c=>c.reason).join(" | ") }, { day:td }),
+    charges.length ? h("div",{class:"charges"}, charges.map(c=>h("div",{class:"charge"}, h("q",null,c.reason), h("div",{class:"by"},`filed by ${firstNm(c.author)}`)))) : null,
+    charges.length ? roast(`nom:${charges[0].key}`, "nom", { name:firstNm(uid), text:charges.map(c=>c.reason).join(" | ") }, { day:td }) : null,
     trial,
     h("div",{class:"btnrow"},
       self ? (appeal ? null : h("button",{class:"btn",onclick:()=>{ S.showAppeal = !S.showAppeal; render(); }},"🧑‍⚖️ Appeal")) :
-        h("button",{class:"btn "+(picked?"hi":"primary"),disabled:acquitted,onclick:()=>vote(uid)}, picked ? "Your pick" : acquitted ? "Acquitted" : "Vote Himmest")),
+        h("button",{class:"btn "+(picked?"hi":"primary"),disabled:acquitted,onclick:()=>vote(uid)}, picked ? "Your pick" : acquitted ? "Acquitted" : "Vote Himmest"),
+      self ? null : h("button",{class:"btn ghost",onclick:()=>{ S.reasonFor = uid; render(); scrollTo({top:0,behavior:"smooth"}); }},"+ Add charge")),
     self && !appeal && S.showAppeal ? appealForm() : null,
     commentsBox(`nc:${td}:${uid}`));
 }
@@ -706,7 +749,12 @@ async function vote(uid){
   if (days[td] === uid) return;
   const first = !days[td]; days[td] = uid;
   const keep = {}; for (const k of Object.keys(days).sort().slice(-1000)) keep[k] = days[k];
-  if (await write("votes",{days:keep})) { toast(first ? `Vote locked in for ${firstNm(uid)}. +${ALLOW_HB} HB tomorrow for voting.` : `Switched to ${firstNm(uid)}. Flip-flopper.`); confetti(); }
+  if (await write("votes",{days:keep})) {
+    toast(first ? `Vote locked in for ${firstNm(uid)}. +${ALLOW_HB} HB tomorrow for voting.` : `Switched to ${firstNm(uid)}. Flip-flopper.`); confetti();
+    const charged = D.noms.some(n=>n.author===S.uid && n.day===td && n.about===uid);
+    if (!charged) { S.reasonFor = uid; draft.nom = { about:uid, reason:"" }; }
+    render(); scrollTo({top:0,behavior:"smooth"});
+  }
 }
 function receiptsCard(day){
   const r = D.receipts[day] || [];
@@ -717,26 +765,36 @@ function receiptsCard(day){
 }
 function viewToday(L){
   const td = D.td, t = D.dv[td] || {}, myVote = mine("votes").days?.[td];
-  const nominees = Object.keys(D.nominated[td] || {}).sort((a,b)=>(t[b]||0)-(t[a]||0) || nm(a).localeCompare(nm(b)));
+  const inPlay = new Set([...Object.keys(D.nominated[td] || {}), ...Object.keys(t), ...Object.keys(D.accused[td] || {})].filter(isMember));
+  const suspects = [...inPlay].sort((a,b)=>(t[b]||0)-(t[a]||0) || nm(a).localeCompare(nm(b)));
+  const rest = members().filter(u=>!inPlay.has(u)).sort((a,b)=>nm(a).localeCompare(nm(b)));
   const top = Math.max(0, ...Object.values(t));
   const hero = h("div",{class:"hero"},
     h("div",{class:"head",style:"margin:0"}, h("span",{class:"label"}, fmtDay(td)), h("span",{class:"pill live"}, `Polls close in ${fmtDur(secsToMidnight())}`)),
     h("h1",null,"Who was the Himmest today?"),
     h("p",{class:"q"}, PROMPTS[dayIndex(td) % PROMPTS.length]),
     h("div",{class:"commentary"}, h("b",null,"ON AIR"), h("span",null, commentary())));
+  const picker = rest.length ? h("div",{class:"stack",style:"gap:8px"},
+    h("div",{class:"label"}, suspects.length ? "Or vote someone new" : "Tap a face to vote"),
+    h("div",{class:"voters"}, rest.map(u=>{
+      const self = u===S.uid;
+      return h("button",{class:"vcard",disabled:self,"aria-label":self?`${nm(u)} (you can't vote for yourself)`:`Vote ${nm(u)} Himmest`,onclick:()=>vote(u)},
+        avatar(u,"lg"), h("div",{class:"nmv"}, nm(u), self ? " (you)" : ""), self ? h("div",{class:"small muted"},"Can't vote yourself") : h("div",{class:"label"},"Tap to vote"));
+    }))) : null;
   const how = h("details",{class:"card how"}, h("summary",null,"How it works (for the slow ones)"),
     h("ul",null,
-      h("li",null,"Nominate someone who did something dumb. Say what he did."),
-      h("li",null,"Everyone votes once a day. Most votes at midnight = the Himmest."),
-      h("li",null,"Nominated? You can appeal once. Win the trial and your votes don't count."),
-      h("li",null,"Most points by Sunday = King of the Week. The King makes a rule and picks the punishment."),
-      h("li",null,"The punishment goes to whoever loses the most Himbucks betting that week.")));
+      h("li",null,"Tap a face to vote for today's Himmest. Say what he did if you want it roasted."),
+      h("li",null,"Most votes at midnight wins the day."),
+      h("li",null,"Him Points: 1 per vote you get, +3 for winning a day, +2 for the day's best quote, +2 for the day's best moment."),
+      h("li",null,"Most Him Points by Sunday = King of the Week. The King makes a rule and picks the punishment."),
+      h("li",null,"Bet on the King before Wednesday midnight. Whoever loses the most Himbucks gets the punishment."),
+      h("li",null,"Got votes? You can appeal once. Win the trial and your votes don't count.")));
   return h("div",{class:"stack"},
-    pushCard(), kingCard(L), hero, nominateCard(),
-    nominees.length ? h("div",{class:"stack"}, h("div",{class:"head",style:"margin:0"}, h("h2",null,"Today's suspects"), h("span",{class:"small muted"}, myVote ? `You voted ${firstNm(myVote)}.` : "One vote. Choose wisely, or don't.")),
-      nominees.map(u=>nomCard(u, t, top, myVote))) :
-      h("div",{class:"card"}, emptyBox("No suspects yet.","Somebody did something dumb today. You know who. Nominate him.")),
-    receiptsCard(addDays(td,-1)), how);
+    pushCard(), kingStrip(L), reasonCard(), hero,
+    suspects.length ? h("div",{class:"stack"}, h("div",{class:"head",style:"margin:0"}, h("h2",null,"Today's suspects"), h("span",{class:"small muted"}, myVote ? `You voted ${firstNm(myVote)}.` : "One vote a day.")),
+      suspects.map(u=>suspectCard(u, t, top, myVote))) : null,
+    members().length < 2 ? h("div",{class:"card"}, emptyBox("You're alone in here.","Send the link to the boys. You can't vote for yourself, sadly.")) : picker,
+    betsSection(L), receiptsCard(addDays(td,-1)), how);
 }
 
 /* ============ MOMENTS ============ */
@@ -856,28 +914,27 @@ async function deleteQuote(q){ if (await write("quotes",{items:items(mine("quote
 
 /* ---- 4-more.js ---- */
 /* ============ BETS ============ */
-function viewBets(L){
+/* Betting lives on Today: the weekly King bet up front, month and year folded away. */
+function betsSection(L){
   const avail = L.avail(S.uid);
-  const wallet = h("div",{class:"wallet"},
-    h("div",null, h("div",{class:"label",style:"color:inherit;opacity:.7"},"Your wallet"), h("div",{class:"big mono"}, avail.toLocaleString(), h("span",{style:"font-size:1rem"}," HB"))),
-    h("p",{class:"small",style:"max-width:46ch"}, `Fake money. Real consequences: whoever loses the most on the weekly bet gets the King's punishment. You get ${ALLOW_HB} HB for every day you vote.`));
   const myOpen = L.open.filter(b=>b.uid===S.uid);
-  const hist = (L.hist[S.uid]||[]).slice().reverse().slice(0,15);
-  const slip = h("div",{class:"card"}, h("h3",{style:"margin-bottom:10px"},"Your bet slip"),
-    myOpen.length ? h("div",{class:"stack",style:"gap:8px"}, myOpen.map(b=>h("div",{class:"slip"}, h("span",null,`${b.amt} HB · ${firstNm(b.on)} for ${PERIODS[b.type]}`), h("span",null,`×${b.mult.toFixed(2)} early bird`)))) : h("p",{class:"muted small"},"No open bets. Scared?"),
-    hist.length ? [h("div",{class:"label",style:"margin-top:14px"},"Settled"), hist.map(r=>h("div",{class:"stat"},
-      h("span",{class:"small"}, `${PERIODS[r.per.type]} · ${periodName(r.per)} · ${r.amt} on ${firstNm(r.on)}`),
-      h("span",{class:"mono "+(r.refund?"muted":r.pay>r.amt?"won":"lost")}, r.refund?"refund":r.pay>0?`+${r.pay-r.amt}`:`−${r.amt}`)))] : null);
-  const how = h("details",{class:"card how"}, h("summary",null,"How betting works"),
-    h("ul",null, h("li",null,"Bet on who wins the week, month or year."),
-      h("li",null,"Everyone who picked right splits the whole pot."),
-      h("li",null,"Bet early and your share is bigger. Betting closes on the last day."),
-      h("li",null,"Nobody picked right? Everyone gets their money back.")));
-  return h("div",{class:"stack"}, wallet, h("div",{class:"grid3"}, ["week","month","year"].map(type => futureCard(type, L, avail))), h("div",{class:"grid"}, slip, how));
+  const hist = (L.hist[S.uid]||[]).slice().reverse().slice(0,10);
+  return h("div",{class:"stack"},
+    h("div",{class:"head",style:"margin:8px 0 0"}, h("h2",null,"🎲 Bet on the King"), h("span",{class:"pill"},`${avail.toLocaleString()} HB to bet`)),
+    futureCard("week", L, avail),
+    h("details",{class:"card how"}, h("summary",null,"More bets: Him of the Month and Him of the Year"),
+      h("div",{class:"stack",style:"margin-top:12px"}, futureCard("month", L, avail), futureCard("year", L, avail))),
+    h("details",{class:"card how"}, h("summary",null,`Your bets${myOpen.length ? ` (${myOpen.length} open)` : ""}`),
+      h("div",{class:"stack",style:"gap:8px;margin-top:10px"},
+        myOpen.length ? myOpen.map(b=>h("div",{class:"slip"}, h("span",null,`${b.amt} HB on ${firstNm(b.on)}`), h("span",null, PERIODS[b.type]))) : h("p",{class:"muted small"},"No open bets. Scared?"),
+        hist.length ? [h("div",{class:"label",style:"margin-top:6px"},"Settled"), hist.map(r=>h("div",{class:"stat"},
+          h("span",{class:"small"}, `${PERIODS[r.per.type]} · ${periodName(r.per)} · ${r.amt} on ${firstNm(r.on)}`),
+          h("span",{class:"mono "+(r.refund?"muted":r.pay>r.amt?"won":"lost")}, r.refund?"refund":r.pay>0?`+${r.pay-r.amt}`:`−${r.amt}`)))] : null,
+        h("p",{class:"small muted"},`Fake money, real consequences. Everyone who picked right splits the pot. You get ${ALLOW_HB} HB for every day you vote, and never drop below ${FLOOR_HB}.`))));
 }
 function futureCard(type, L, avail){
   const td = D.td, per = periodOf(type, td), bd = draft.bets[type];
-  const closed = td === per.end, mult = earlyBird(per, td);
+  const closed = !betOpenOn(per, td);
   const open = L.open.filter(b=>b.per.key===per.key), pool = open.reduce((a,b)=>a+b.amt,0);
   const on = {}; for (const b of open) on[b.on] = (on[b.on]||0) + b.amt;
   const st = standings(per.start, per.end).slice(0,5);
@@ -887,17 +944,16 @@ function futureCard(type, L, avail){
     h("div",{class:"label"}, periodName(per)),
     h("h2",{style:"margin:4px 0 8px"}, PERIODS[type]),
     h("div",{class:"btnrow",style:"gap:6px;margin-bottom:10px"},
-      h("span",{class:"pill "+(closed?"closed":"live")}, closed ? "Betting closed" : `Closes in ${fmtDur(betCloseSecs(per, td))}`),
-      h("span",{class:"pill"}, `Pool ${pool.toLocaleString()} HB`),
-      closed ? null : h("span",{class:"pill"}, `Early bird ×${mult.toFixed(2)}`)),
+      h("span",{class:"pill "+(closed?"closed":"live")}, closed ? (type==="week" ? "Closed Wednesday" : "Betting closed") : `Closes in ${fmtDur(betCloseSecs(per, td))}`),
+      h("span",{class:"pill"}, `Pool ${pool.toLocaleString()} HB`)),
     st.some(s=>s.pts>0) ? st.map((s,i)=>h("div",{class:"row"},
       h("div",{class:"rank"+(i===0?" gold":"")}, i+1), avatar(s.uid,"sm"),
-      h("div",{style:"min-width:0"}, h("div",{class:"nm"}, nm(s.uid)), h("div",{class:"sub"}, on[s.uid] ? `${on[s.uid]} HB backing · pays ~${(pool/on[s.uid]).toFixed(1)}×` : "No money on him yet")),
+      h("div",{style:"min-width:0"}, h("div",{class:"nm"}, nm(s.uid)), h("div",{class:"sub"}, whyText(s.br)), on[s.uid] ? h("div",{class:"sub"}, `${on[s.uid]} HB on him · pays ~${(pool/on[s.uid]).toFixed(1)}×`) : null),
       h("div",{class:"pts"}, `${s.pts} pts`))) : h("p",{class:"muted small"},"No points yet. Pure speculation. The best kind."),
     closed ? null : h("form",{style:"margin-top:12px",onsubmit:async e=>{
       e.preventDefault(); err.hidden = true;
       const a = Math.floor(+bd.amt);
-      if (today() === per.end) { err.textContent = "Betting just closed."; err.hidden = false; return; }
+      if (!betOpenOn(per, today())) { err.textContent = "Betting just closed."; err.hidden = false; return; }
       if (!bd.on) { err.textContent = "Pick who you're backing."; err.hidden = false; return; }
       if (!(a >= 1)) { err.textContent = "Bet at least 1 HB, cheapskate."; err.hidden = false; return; }
       if (a > avail) { err.textContent = `You only have ${avail} HB. Broke behavior.`; err.hidden = false; return; }
@@ -988,7 +1044,7 @@ function memRanks(){
     h("div",{class:"head"}, h("h2",null, rt==="day" ? "Today's standings" : `${PERIODS[rt]} race`), h("span",{class:"label"}, rt==="day" ? fmtDay(td) : periodName(per))),
     st.map((s,i)=>h("div",{class:"row"},
       h("div",{class:"rank"+(i===0&&s.pts?" gold":"")}, s.pts ? i+1 : "–"), avatar(s.uid),
-      h("div",{style:"min-width:0"}, h("div",{class:"nm"}, nm(s.uid), s.uid===S.uid ? h("span",{class:"sub"}," (you)") : null), h("div",{class:"sub"}, titleFor(trophies(s.uid).day))),
+      h("div",{style:"min-width:0"}, h("div",{class:"nm"}, nm(s.uid), s.uid===S.uid ? h("span",{class:"sub"}," (you)") : null), h("div",{class:"sub"}, whyText(s.br))),
       h("div",{class:"pts"}, `${s.pts} pts`))));
   const cabinet = h("div",{class:"card pink"}, h("h3",{style:"margin-bottom:8px"},"Trophy cabinet"),
     ["year","month","week"].map(type => {
@@ -997,7 +1053,7 @@ function memRanks(){
         w.length ? w.map(x=>h("div",{class:"stat"}, h("span",{class:"small"}, periodName(x.per)), h("strong",{class:"small"}, x.winners.map(nm).join(" & ")))) : h("p",{class:"muted small"},"Not awarded yet."));
     }));
   const points = h("div",{class:"card"}, h("h3",{style:"margin-bottom:6px"},"How Him Points work"),
-    [[`+${PTS_VOTE}`,"each vote you get"],[`+${PTS_CROWN}`,"winning the day"],[`+${PTS_QUOTE}`,"each vote on your quote"],[`+${PTS_REACT}`,"each reaction on a moment of you"]].map(([a,b])=>h("div",{class:"stat"}, h("span",null,b), h("span",{class:"mono"},a))));
+    [[`+${PTS_VOTE}`,"each vote you get"],[`+${PTS_DAY}`,"winning the day"],[`+${PTS_QUOTE}`,"the day's best quote is yours"],[`+${PTS_MOMENT}`,"the day's best moment is of you"]].map(([a,b])=>h("div",{class:"stat"}, h("span",null,b), h("span",{class:"mono"},a))));
   return h("div",{class:"grid"}, h("div",{class:"stack"}, board, points), h("div",{class:"stack"}, cabinet));
 }
 
@@ -1129,7 +1185,7 @@ function render(){
       h("h2",{style:"margin-bottom:6px"},"Make your profile"),
       h("p",{class:"muted",style:"margin-bottom:14px"},"Name and a selfie, so your friends know who to roast."),
       profileForm(null)));
-  else v = ({ today:viewToday, moments:viewMoments, quotes:viewQuotes, bets:viewBets, memories:viewMemories, me:viewMe }[S.tab] || viewToday)(L);
+  else v = ({ today:viewToday, moments:viewMoments, quotes:viewQuotes, memories:viewMemories, me:viewMe }[S.tab] || viewToday)(L);
   main.replaceChildren(v);
   if (isMember(S.uid)) maybeCeremony();
 }

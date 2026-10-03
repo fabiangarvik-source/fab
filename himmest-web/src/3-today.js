@@ -2,8 +2,7 @@
 function commentary(){
   const t = D.dv[D.td] || {}, ids = Object.keys(t).sort((a,b)=>t[b]-t[a]);
   const charged = Object.keys(D.nominated[D.td] || {}).length;
-  if (!charged) return "Zero nominations. Either you all got smarter overnight, or you're cowards. It's the second one.";
-  if (!ids.length) return `${charged} ${charged===1?"suspect":"suspects"} charged and nobody has voted. Do your civic duty.`;
+  if (!ids.length) return charged ? `${charged} ${charged===1?"suspect":"suspects"} charged and nobody has voted. Do your civic duty.` : "Zero votes. Either you all got smarter overnight, or you're cowards. It's the second one.";
   const [a, b] = ids;
   if (b && t[a] === t[b]) return `Dead heat between ${firstNm(a)} and ${firstNm(b)}. Nobody has thought this hard all semester.`;
   return pick([
@@ -59,35 +58,51 @@ function kingCard(L){
     !isKing && !law ? h("p",{class:"small muted"},`Waiting on ${firstNm(kings[0])} to decree something. Any day now, Your Majesty.`) : null);
 }
 
-function nominateCard(){
-  const dn = draft.nom, td = D.td;
-  const mineToday = D.noms.filter(n=>n.author===S.uid && n.day===td).length;
-  if (!S.showNom) return h("button",{class:"btn huge pop",onclick:()=>{ S.showNom = true; render(); }},"⚖️ Nominate a him");
-  const err = h("div",{class:"err",hidden:true});
-  return h("div",{class:"card loud"},
-    h("div",{class:"head"}, h("h2",null,"Who did something dumb?"), h("button",{class:"btn ghost",onclick:()=>{ S.showNom=false; render(); }},"Close")),
-    h("form",{onsubmit:async e=>{
-      e.preventDefault(); err.hidden = true;
-      if (mineToday >= NOMS_PER_DAY) { err.textContent = `You've used your ${NOMS_PER_DAY} nominations today. Calm down, prosecutor.`; err.hidden = false; return; }
-      if (!dn.about) { err.textContent = "Tap who you're accusing."; err.hidden = false; return; }
-      const reason = dn.reason.trim();
-      if (reason.length < 4) { err.textContent = "Say what he did. \"Being dumb\" is not a charge, it's a lifestyle."; err.hidden = false; return; }
-      const list = items(mine("noms"), MAX_ITEMS-1); list.push({ k:rid(), day:td, about:dn.about, reason:reason.slice(0,140), ts:Date.now() });
-      const who = dn.about;
-      if (await write("noms",{ items:list })) { draft.nom = { about:"", reason:"" }; S.showNom = false; toast(`${firstNm(who)} has been charged. Let the people decide.`); confetti(); render(); }
-    }},
-      h("div",{class:"field"}, h("span",{class:"label"},"The accused"), personPicker(dn.about, u=>{ dn.about=u; render(); }, "Who are you nominating")),
-      h("div",{class:"field"}, h("label",{class:"label",for:"n-reason"},"The charge"),
-        h("input",{id:"n-reason",maxlength:"140",value:dn.reason,placeholder:"Tried to pay for kebab with his student ID",oninput:e=>dn.reason=e.target.value})),
-      err, h("button",{class:"btn primary",type:"submit"},"File the charge"),
-      h("p",{class:"small muted"},`${NOMS_PER_DAY - mineToday} nominations left today.`)));
+/* The King as a one-line strip; tap to open the full card. The King himself sees the full card until he decrees. */
+function kingStrip(L){
+  const per = periodOf("week", D.td), { kings, law } = reignFor(per);
+  const lastWeek = periodOf("week", addDays(per.start, -1)), broke = L.brokest(lastWeek.key), lastLaw = reignFor(lastWeek).law;
+  const mustOpen = kings.includes(S.uid) && !law;
+  if (S.kingOpen || mustOpen) return h("div",{class:"stack",style:"gap:8px"}, kingCard(L),
+    mustOpen ? null : h("button",{class:"linkbtn",onclick:()=>{ S.kingOpen = false; render(); }},"Hide the King"));
+  return h("button",{class:"kingstrip",onclick:()=>{ S.kingOpen = true; render(); }},
+    kings.length ? avatar(kings[0],"sm") : h("span",{"aria-hidden":"true",style:"font-size:1.3rem"},"👑"),
+    h("span",{class:"ks-text"},
+      h("b",null, kings.length ? `King ${kings.map(firstNm).join(" & ")}` : "No King yet"),
+      h("span",null, law?.punishment ? `⚖️ Loser this week: ${law.punishment}` : kings.length ? "No decree yet. Weak." : "Win the week to take the crown"),
+      lastLaw?.punishment && broke ? h("span",null, `🧾 ${firstNm(broke.uid)} owes: ${lastLaw.punishment}`) : null),
+    h("span",{class:"ks-more","aria-hidden":"true"},"›"));
 }
 
-function nomCard(uid, t, top, myVote){
-  const td = D.td, charges = D.nominated[td][uid], n = t[uid]||0, self = uid===S.uid, picked = myVote===uid;
+const CHARGE_IDEAS = ["Pushed a pull door","Said something unhinged","Got lost on campus","Microwave crime","Lost his phone while holding it"];
+
+/* After you vote: "What did he do?" Skippable, but only charges get roasted and saved in Memories. */
+function reasonCard(){
+  const uid = S.reasonFor; if (!uid || !isMember(uid)) return null;
+  const dn = draft.nom, err = h("div",{class:"err",hidden:true});
+  const inp = h("input",{id:"n-reason",maxlength:"140",value:dn.reason,placeholder:"Tried to pay for kebab with his student ID",oninput:e=>dn.reason=e.target.value});
+  const save = async reason => {
+    reason = (reason || "").trim();
+    if (reason.length < 3) { err.textContent = "Say what he did, or skip."; err.hidden = false; return; }
+    const mineToday = D.noms.filter(n=>n.author===S.uid && n.day===D.td).length;
+    if (mineToday >= NOMS_PER_DAY) { toast(`You've filed ${NOMS_PER_DAY} charges today. Calm down, prosecutor.`); S.reasonFor = null; render(); return; }
+    const list = items(mine("noms"), MAX_ITEMS-1); list.push({ k:rid(), day:D.td, about:uid, reason:reason.slice(0,140), ts:Date.now() });
+    if (await write("noms",{ items:list })) { draft.nom = { about:"", reason:"" }; S.reasonFor = null; toast(`Charge filed against ${firstNm(uid)}. It's on the record forever.`); render(); }
+  };
+  return h("div",{class:"card pink reason"},
+    h("div",{style:"display:flex;align-items:center;gap:10px"}, avatar(uid), h("h3",null,`What did ${firstNm(uid)} do?`)),
+    h("div",{class:"chips"}, CHARGE_IDEAS.map(c=>h("button",{type:"button",class:"chip",onclick:()=>save(c)}, c))),
+    h("form",{class:"cform",onsubmit:e=>{ e.preventDefault(); save(dn.reason); }}, inp, h("button",{class:"btn primary",type:"submit"},"File it")),
+    err,
+    h("div",{class:"btnrow",style:"justify-content:space-between"},
+      h("span",{class:"small muted"},"Charges get roasted and saved in Memories."),
+      h("button",{class:"btn ghost",onclick:()=>{ S.reasonFor = null; draft.nom = { about:"", reason:"" }; render(); }},"Skip")));
+}
+
+function suspectCard(uid, t, top, myVote){
+  const td = D.td, charges = D.nominated[td]?.[uid] || [], n = t[uid]||0, self = uid===S.uid, picked = myVote===uid;
   const appeal = D.appeals[td]?.[uid], verdict = D.verdicts[td]?.[uid] || { guilty:0, innocent:0 };
   const acquitted = D.acquitted(td, uid), myVerdict = mine("verdicts").days?.[td]?.[uid];
-  const first = charges[0];
   const trial = appeal ? h("div",{class:"trialbox"},
     h("div",{class:"head",style:"margin:0"}, h("span",{class:"stamp "+(acquitted?"free":"trial")}, acquitted ? "ACQUITTED (for now)" : "ON TRIAL"), h("span",{class:"mono small"}, `${verdict.guilty} guilty · ${verdict.innocent} innocent`)),
     h("div",{class:"defense"}, `His defense: "${appeal.text}"`),
@@ -101,14 +116,15 @@ function nomCard(uid, t, top, myVote){
     n && n===top && !acquitted ? h("span",{class:"sticker lead"},"LEADING") : null,
     h("div",{class:"top"}, avatar(uid,"lg"),
       h("div",{style:"min-width:0"}, h("div",{class:"nm",style:"font-size:1.1rem"}, nm(uid), self ? " (you)" : ""),
-        h("div",{class:"sub"}, `${charges.length} charge${charges.length===1?"":"s"}`), brainMeter(uid)),
+        h("div",{class:"sub"}, charges.length ? `${charges.length} charge${charges.length===1?"":"s"}` : "No charges filed"), brainMeter(uid)),
       h("div",{class:"count"}, h("div",{class:"votes"}, acquitted ? "–" : n), h("div",{class:"label"}, n===1?"vote":"votes"))),
-    h("div",{class:"charges"}, charges.map(c=>h("div",{class:"charge"}, h("q",null,c.reason), h("div",{class:"by"},`filed by ${firstNm(c.author)}`)))),
-    roast(`nom:${first.key}`, "nom", { name:firstNm(uid), text:charges.map(c=>c.reason).join(" | ") }, { day:td }),
+    charges.length ? h("div",{class:"charges"}, charges.map(c=>h("div",{class:"charge"}, h("q",null,c.reason), h("div",{class:"by"},`filed by ${firstNm(c.author)}`)))) : null,
+    charges.length ? roast(`nom:${charges[0].key}`, "nom", { name:firstNm(uid), text:charges.map(c=>c.reason).join(" | ") }, { day:td }) : null,
     trial,
     h("div",{class:"btnrow"},
       self ? (appeal ? null : h("button",{class:"btn",onclick:()=>{ S.showAppeal = !S.showAppeal; render(); }},"🧑‍⚖️ Appeal")) :
-        h("button",{class:"btn "+(picked?"hi":"primary"),disabled:acquitted,onclick:()=>vote(uid)}, picked ? "Your pick" : acquitted ? "Acquitted" : "Vote Himmest")),
+        h("button",{class:"btn "+(picked?"hi":"primary"),disabled:acquitted,onclick:()=>vote(uid)}, picked ? "Your pick" : acquitted ? "Acquitted" : "Vote Himmest"),
+      self ? null : h("button",{class:"btn ghost",onclick:()=>{ S.reasonFor = uid; render(); scrollTo({top:0,behavior:"smooth"}); }},"+ Add charge")),
     self && !appeal && S.showAppeal ? appealForm() : null,
     commentsBox(`nc:${td}:${uid}`));
 }
@@ -135,7 +151,12 @@ async function vote(uid){
   if (days[td] === uid) return;
   const first = !days[td]; days[td] = uid;
   const keep = {}; for (const k of Object.keys(days).sort().slice(-1000)) keep[k] = days[k];
-  if (await write("votes",{days:keep})) { toast(first ? `Vote locked in for ${firstNm(uid)}. +${ALLOW_HB} HB tomorrow for voting.` : `Switched to ${firstNm(uid)}. Flip-flopper.`); confetti(); }
+  if (await write("votes",{days:keep})) {
+    toast(first ? `Vote locked in for ${firstNm(uid)}. +${ALLOW_HB} HB tomorrow for voting.` : `Switched to ${firstNm(uid)}. Flip-flopper.`); confetti();
+    const charged = D.noms.some(n=>n.author===S.uid && n.day===td && n.about===uid);
+    if (!charged) { S.reasonFor = uid; draft.nom = { about:uid, reason:"" }; }
+    render(); scrollTo({top:0,behavior:"smooth"});
+  }
 }
 function receiptsCard(day){
   const r = D.receipts[day] || [];
@@ -146,26 +167,36 @@ function receiptsCard(day){
 }
 function viewToday(L){
   const td = D.td, t = D.dv[td] || {}, myVote = mine("votes").days?.[td];
-  const nominees = Object.keys(D.nominated[td] || {}).sort((a,b)=>(t[b]||0)-(t[a]||0) || nm(a).localeCompare(nm(b)));
+  const inPlay = new Set([...Object.keys(D.nominated[td] || {}), ...Object.keys(t), ...Object.keys(D.accused[td] || {})].filter(isMember));
+  const suspects = [...inPlay].sort((a,b)=>(t[b]||0)-(t[a]||0) || nm(a).localeCompare(nm(b)));
+  const rest = members().filter(u=>!inPlay.has(u)).sort((a,b)=>nm(a).localeCompare(nm(b)));
   const top = Math.max(0, ...Object.values(t));
   const hero = h("div",{class:"hero"},
     h("div",{class:"head",style:"margin:0"}, h("span",{class:"label"}, fmtDay(td)), h("span",{class:"pill live"}, `Polls close in ${fmtDur(secsToMidnight())}`)),
     h("h1",null,"Who was the Himmest today?"),
     h("p",{class:"q"}, PROMPTS[dayIndex(td) % PROMPTS.length]),
     h("div",{class:"commentary"}, h("b",null,"ON AIR"), h("span",null, commentary())));
+  const picker = rest.length ? h("div",{class:"stack",style:"gap:8px"},
+    h("div",{class:"label"}, suspects.length ? "Or vote someone new" : "Tap a face to vote"),
+    h("div",{class:"voters"}, rest.map(u=>{
+      const self = u===S.uid;
+      return h("button",{class:"vcard",disabled:self,"aria-label":self?`${nm(u)} (you can't vote for yourself)`:`Vote ${nm(u)} Himmest`,onclick:()=>vote(u)},
+        avatar(u,"lg"), h("div",{class:"nmv"}, nm(u), self ? " (you)" : ""), self ? h("div",{class:"small muted"},"Can't vote yourself") : h("div",{class:"label"},"Tap to vote"));
+    }))) : null;
   const how = h("details",{class:"card how"}, h("summary",null,"How it works (for the slow ones)"),
     h("ul",null,
-      h("li",null,"Nominate someone who did something dumb. Say what he did."),
-      h("li",null,"Everyone votes once a day. Most votes at midnight = the Himmest."),
-      h("li",null,"Nominated? You can appeal once. Win the trial and your votes don't count."),
-      h("li",null,"Most points by Sunday = King of the Week. The King makes a rule and picks the punishment."),
-      h("li",null,"The punishment goes to whoever loses the most Himbucks betting that week.")));
+      h("li",null,"Tap a face to vote for today's Himmest. Say what he did if you want it roasted."),
+      h("li",null,"Most votes at midnight wins the day."),
+      h("li",null,"Him Points: 1 per vote you get, +3 for winning a day, +2 for the day's best quote, +2 for the day's best moment."),
+      h("li",null,"Most Him Points by Sunday = King of the Week. The King makes a rule and picks the punishment."),
+      h("li",null,"Bet on the King before Wednesday midnight. Whoever loses the most Himbucks gets the punishment."),
+      h("li",null,"Got votes? You can appeal once. Win the trial and your votes don't count.")));
   return h("div",{class:"stack"},
-    pushCard(), kingCard(L), hero, nominateCard(),
-    nominees.length ? h("div",{class:"stack"}, h("div",{class:"head",style:"margin:0"}, h("h2",null,"Today's suspects"), h("span",{class:"small muted"}, myVote ? `You voted ${firstNm(myVote)}.` : "One vote. Choose wisely, or don't.")),
-      nominees.map(u=>nomCard(u, t, top, myVote))) :
-      h("div",{class:"card"}, emptyBox("No suspects yet.","Somebody did something dumb today. You know who. Nominate him.")),
-    receiptsCard(addDays(td,-1)), how);
+    pushCard(), kingStrip(L), reasonCard(), hero,
+    suspects.length ? h("div",{class:"stack"}, h("div",{class:"head",style:"margin:0"}, h("h2",null,"Today's suspects"), h("span",{class:"small muted"}, myVote ? `You voted ${firstNm(myVote)}.` : "One vote a day.")),
+      suspects.map(u=>suspectCard(u, t, top, myVote))) : null,
+    members().length < 2 ? h("div",{class:"card"}, emptyBox("You're alone in here.","Send the link to the boys. You can't vote for yourself, sadly.")) : picker,
+    betsSection(L), receiptsCard(addDays(td,-1)), how);
 }
 
 /* ============ MOMENTS ============ */
