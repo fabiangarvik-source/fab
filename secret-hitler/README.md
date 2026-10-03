@@ -64,9 +64,12 @@ npm run dev & BASE=http://localhost:3000 PLAYERS=7 npm run e2e
 
 ## Deploy to Vercel
 
-1. In Vercel, **Add New → Project → import `fabiangarvik-source/fab`**, set **Root Directory** to `secret-hitler` (framework: Next.js). If Vercel asks, install the Vercel GitHub app for the repo so pushes auto-deploy.
-2. **Storage → your Neon database → Connect Project →** pick this project (production + preview). That adds `DATABASE_URL`. You can reuse the database the Himmest app already uses; this app only touches its own `sh_rooms` table.
-3. Redeploy. Rooms expire after 4 hours without activity.
+The Vercel project **`secret-hitler`** already exists (root directory `secret-hitler`, Next.js, Node 22, public URL `https://secret-hitler-ten.vercel.app`). What it still needs:
+
+1. **Database:** Vercel → Storage → your Neon database → **Connect Project** → `secret-hitler` (production + preview). That adds `DATABASE_URL`. Reusing the Himmest database is fine; this app only touches its own `sh_rooms` table, created automatically. Then **Redeploy** the latest deployment.
+2. **Auto-deploy on push (optional):** Project → Settings → Git → connect `fabiangarvik-source/fab`. Vercel will ask to install its GitHub app on the repo first.
+
+Rooms expire after 4 hours without activity.
 
 ## Decisions made
 
