@@ -277,7 +277,7 @@ const pick = (arr, seed) => { let x = 0; for (const c of String(seed)) x = (x*31
 const S = { uid:null, email:"", tab:"today", rankTab:"week", memTab:"roll", loaded:new Set(), push:"unknown",
   openComments:new Set(), cdraft:{}, reelShuffle:"", reasonFor:null, kingOpen:false, showAppeal:false };
 for (const c of COLS) S[c] = {};
-const draft = { moment:{ img:null, about:"", caption:"", top:"", bottom:"" }, quote:{ about:"", text:"" }, nom:{ about:"", reason:"" }, reign:{ for:"", reward:"", punishment:"", photo:null },
+const draft = { moment:{ img:null, who:[], caption:"", top:"", bottom:"" }, quote:{ who:[], text:"" }, nom:{ about:"", reason:"" }, reign:{ for:"", reward:"", punishment:"", photo:null },
   bets:{ week:{on:"",amt:""}, month:{on:"",amt:""}, year:{on:"",amt:""} } };
 try { const t = localStorage.getItem("himmest.tab"); if (t && t !== "bets") S.tab = t; } catch {}
 let D = null, V = "", authed = null;
@@ -309,6 +309,17 @@ function avatar(uid, size){
   const ini = p ? (((p.first||"?")[0]||"")+((p.last||"")[0]||"")).toUpperCase() : "?";
   return h("div",{class:cls,"aria-hidden":"true",style}, ini);
 }
+/* Everyone tagged in a moment or quote (max 5). Older posts only have "about". */
+const MAX_TAGS = 5;
+function tagsOf(x){
+  const list = Array.isArray(x.with) && x.with.length ? x.with : [x.about];
+  return [...new Set(list)].filter(isMember).slice(0, MAX_TAGS);
+}
+/* "Jake", "Jake & Igor", "Jake, Igor & Ola" */
+function joinNames(names){ return names.length <= 1 ? (names[0] || "") : names.slice(0,-1).join(", ") + " & " + names[names.length-1]; }
+const tagFirst = x => joinNames((x.tags || [x.about]).map(firstNm));
+const tagFull = x => (x.tags || [x.about]).length > 1 ? tagFirst(x) : nm(x.about);
+function avatarStack(x, size){ return h("span",{class:"avstack"}, (x.tags || [x.about]).map(u=>avatar(u, size))); }
 function titleFor(n){ let t=TITLES[0][1]; for (const [k,s] of TITLES) if (n>=k) t=s; return t; }
 function emptyBox(t, s){ return h("div",{class:"empty"}, h("strong",null,t), s); }
 const items = (doc, max = MAX_ITEMS) => (doc?.items || []).slice(-max);
@@ -321,17 +332,19 @@ function derive(){
   for (const [author, doc] of Object.entries(S.quotes)) {
     if (!isMember(author)) continue;
     for (const q of items(doc)) {
-      if (!q || typeof q.text !== "string" || !isMember(q.about) || typeof q.day !== "string") continue;
+      if (!q || typeof q.text !== "string" || typeof q.day !== "string") continue;
+      const tags = tagsOf(q); if (!tags.length) continue;
       const key = `${author}:${q.k}`;
-      if (!vetoed(q.about, key)) quotes.push({ ...q, text:q.text.slice(0,240), author, key });
+      if (!tags.some(u=>vetoed(u, key))) quotes.push({ ...q, about:tags[0], tags, text:q.text.slice(0,240), author, key });
     }
   }
   for (const [author, doc] of Object.entries(S.photos)) {
     if (!isMember(author)) continue;
     for (const p of items(doc)) {
-      if (!p || !okImg(p.img) || !isMember(p.about) || typeof p.day !== "string") continue;
+      if (!p || !okImg(p.img) || typeof p.day !== "string") continue;
+      const tags = tagsOf(p); if (!tags.length) continue;
       const key = `p:${author}:${p.k}`;
-      if (!vetoed(p.about, key)) photos.push({ ...p, caption:String(p.caption||"").slice(0,140), author, key });
+      if (!tags.some(u=>vetoed(u, key))) photos.push({ ...p, about:tags[0], tags, caption:String(p.caption||"").slice(0,140), author, key });
     }
   }
   for (const [author, doc] of Object.entries(S.noms)) {
@@ -388,7 +401,7 @@ function derive(){
     if (!isMember(voter)) continue;
     for (const [d, k] of Object.entries(v?.days||{})) {
       const q = qByKey.get(k);
-      if (!q || q.day !== d || voter === q.author || voter === q.about) continue;
+      if (!q || q.day !== d || voter === q.author || q.tags.includes(voter)) continue;
       qv[k] = (qv[k]||0) + 1;
     }
   }
@@ -397,7 +410,7 @@ function derive(){
     if (!isMember(who)) continue;
     for (const [k, type] of Object.entries(doc?.map||{})) {
       const p = pByKey.get(k);
-      if (!p || !REACTS[type] || who === p.about) continue;
+      if (!p || !REACTS[type] || p.tags.includes(who)) continue;
       const r = (rc[k] ||= { total:0 }); r[type] = (r[type]||0) + 1; r.total++;
     }
   }
@@ -406,7 +419,7 @@ function derive(){
     const byDay = {}; for (const x of list) if (x.day < td) (byDay[x.day] ||= []).push(x);
     for (const [d, xs] of Object.entries(byDay)) {
       const max = Math.max(0, ...xs.map(score)); if (!max) continue;
-      const winners = new Set(xs.filter(x=>score(x)===max).map(x=>x.about));
+      const winners = new Set(xs.filter(x=>score(x)===max).flatMap(x=>x.tags));
       for (const u of winners) add(d, u, bonus, kind);
     }
   };
@@ -572,10 +585,17 @@ function commentsBox(target, label = "Talk trash"){
 }
 async function delComment(c){ await write("comments",{ items:items(mine("comments")).filter(x=>x.k!==c.k) }); render(); }
 
-function personPicker(selected, onPick, label, includeSelf){
+/* Tap several people; tap again to untag. */
+function multiPicker(selected, label, includeSelf){
   const list = members().filter(u=>includeSelf || u!==S.uid).sort((a,b)=>nm(a).localeCompare(nm(b)));
   if (!list.length) return h("p",{class:"muted small"},"Nobody else has joined yet. Send them the link.");
-  return h("div",{class:"people",role:"group","aria-label":label}, list.map(u=>h("button",{type:"button",class:"person","aria-pressed":String(selected===u),onclick:()=>onPick(u)}, avatar(u), firstNm(u))));
+  return h("div",{class:"people",role:"group","aria-label":label}, list.map(u=>h("button",{type:"button",class:"person","aria-pressed":String(selected.includes(u)),onclick:()=>{
+    const i = selected.indexOf(u);
+    if (i >= 0) selected.splice(i, 1);
+    else if (selected.length >= MAX_TAGS) { toast(`Max ${MAX_TAGS} people. It's a moment, not a team photo.`); return; }
+    else selected.push(u);
+    render();
+  }}, avatar(u), firstNm(u))));
 }
 async function veto(key, msg){ const keys = [...(mine("vetoes").keys||[]), key].slice(-1000); if (await write("vetoes",{keys})) toast(msg); }
 
@@ -596,7 +616,7 @@ function renderWho(L){
 function renderTicker(){
   const lines = [];
   for (const n of (D.noms||[]).filter(n=>n.day===D.td).slice(-5)) lines.push(["CHARGED", `${firstNm(n.about)}: ${n.reason}`]);
-  for (const q of (D.quotes||[]).filter(q=>q.day===D.td).slice(0,5)) lines.push([firstNm(q.about).toUpperCase()+" SAYS", `"${q.text}"`]);
+  for (const q of (D.quotes||[]).filter(q=>q.day===D.td).slice(0,5)) lines.push([tagFirst(q).toUpperCase()+(q.tags.length>1?" SAY":" SAYS"), `"${q.text}"`]);
   const t = D.dv?.[D.td] || {}; const lead = Object.keys(t).sort((a,b)=>t[b]-t[a])[0];
   if (lead) lines.push(["LIVE", `${nm(lead)} leads today's race with ${t[lead]} vote${t[lead]===1?"":"s"}`]);
   for (const f of FILLER) lines.push(["HIMBO NEWS", f]);
@@ -995,17 +1015,17 @@ function viewMoments(){
     h("p",{class:"muted small",style:"margin-bottom:12px"},"Caught someone mid-himbo? Evidence or it didn't happen."),
     dm.img ? h("form",{onsubmit:async e=>{
         e.preventDefault(); err.hidden = true;
-        if (!dm.about) { err.textContent = "Tap who's in the photo."; err.hidden = false; return; }
+        if (!dm.who.length) { err.textContent = "Tap who's in the photo."; err.hidden = false; return; }
         const sb = e.submitter; if (sb) sb.disabled = true;
         let url; try { url = await uploadImg("photo", await memeify(dm.img, dm.top, dm.bottom)); } catch(x) { err.textContent = x.message; err.hidden = false; if (sb) sb.disabled = false; return; }
         const list = items(mine("photos"), MAX_ITEMS-1).filter(x=>okImg(x.img));
-        list.push({ k:rid(), about:dm.about, caption:dm.caption.trim().slice(0,140), day:td, ts:Date.now(), img:url, meme:!!((dm.top||"").trim() || (dm.bottom||"").trim()) || undefined });
-        const who = dm.about;
-        if (await write("photos",{items:list})) { draft.moment = { img:null, about:"", caption:"", top:"", bottom:"" }; toast(`Posted. ${firstNm(who)} will never live this down.`); confetti(); render(); }
+        list.push({ k:rid(), about:dm.who[0], with:[...dm.who], caption:dm.caption.trim().slice(0,140), day:td, ts:Date.now(), img:url, meme:!!((dm.top||"").trim() || (dm.bottom||"").trim()) || undefined });
+        const who = joinNames(dm.who.map(firstNm));
+        if (await write("photos",{items:list})) { draft.moment = { img:null, who:[], caption:"", top:"", bottom:"" }; toast(`Posted. ${who} will never live this down.`); confetti(); render(); }
         else if (sb) sb.disabled = false;
       }},
       memePreview(dm),
-      h("div",{class:"field"}, h("span",{class:"label"},"Who's the him?"), personPicker(dm.about, u=>{ dm.about=u; render(); }, "Who's in the photo", true)),
+      h("div",{class:"field"}, h("span",{class:"label"},`Who's in it? Tap everyone (max ${MAX_TAGS})`), multiPicker(dm.who, "Who's in the photo", true)),
       h("div",{class:"field"}, h("label",{class:"label",for:"m-cap"},"Caption"),
         h("input",{id:"m-cap",maxlength:"140",value:dm.caption,placeholder:"pushed a pull door for two full minutes",oninput:e=>dm.caption=e.target.value})),
       err,
@@ -1025,17 +1045,17 @@ function viewMoments(){
     h("button",{class:"btn",onclick:()=>{ S.memTab="roll"; go("memories"); }},"See every moment ever in Memories →"));
 }
 function reactBar(p){
-  const r = D.rc[p.key] || {}, mineR = mine("reacts").map?.[p.key], self = p.about === S.uid;
+  const r = D.rc[p.key] || {}, mineR = mine("reacts").map?.[p.key], self = p.tags.includes(S.uid);
   return h("div",{class:"reacts"}, Object.entries(REACTS).map(([k,[e,label]]) =>
     h("button",{class:"react","aria-pressed":String(mineR===k),disabled:self,title:self?"You can't react to yourself":label,"aria-label":`${label}: ${r[k]||0}`,onclick:()=>react(p,k)}, e, h("span",{class:"mono small"}, r[k]||0))));
 }
 function momentCard(p){
-  const isMine = p.author===S.uid, aboutMe = p.about===S.uid;
+  const isMine = p.author===S.uid, aboutMe = p.tags.includes(S.uid);
   return h("div",{class:"moment"},
-    h("button",{class:"pic",type:"button","aria-label":`Open photo of ${nm(p.about)}`,onclick:()=>lightbox(p.img, p.caption ? `${nm(p.about)}: ${p.caption}` : nm(p.about))}, h("img",{src:p.img,alt:p.caption||`Photo of ${nm(p.about)}`,loading:"lazy"})),
-    h("div",{class:"byline"}, avatar(p.about,"sm"), h("strong",null,nm(p.about)), h("span",{class:"sp"}), h("span",null, p.day===D.td ? "today" : fmtDay(p.day))),
+    h("button",{class:"pic",type:"button","aria-label":`Open photo of ${tagFull(p)}`,onclick:()=>lightbox(p.img, p.caption ? `${tagFull(p)}: ${p.caption}` : tagFull(p))}, h("img",{src:p.img,alt:p.caption||`Photo of ${nm(p.about)}`,loading:"lazy"})),
+    h("div",{class:"byline"}, avatarStack(p,"sm"), h("strong",null,tagFull(p)), h("span",{class:"sp"}), h("span",null, p.day===D.td ? "today" : fmtDay(p.day))),
     p.caption ? h("div",{class:"cap"}, p.caption) : null,
-    roast(`moment:${p.key}`, "moment", { name:firstNm(p.about), text:p.caption || "a photo" }, { day:p.day, img:imgKey(p.img) }),
+    roast(`moment:${p.key}`, "moment", { name:tagFirst(p), text:p.caption || "a photo" }, { day:p.day, img:imgKey(p.img) }),
     reactBar(p),
     h("div",{class:"byline"}, h("span",null,`snapped by ${firstNm(p.author)}`), h("span",{class:"sp"}),
       isMine ? h("button",{class:"btn ghost",onclick:()=>deletePhoto(p)},"Delete") : null,
@@ -1059,34 +1079,34 @@ function viewQuotes(){
     h("form",{onsubmit:async e=>{
       e.preventDefault(); err.hidden = true;
       const text = dq.text.trim().replace(/^["“]+|["”]+$/g,"");
-      if (!dq.about) { err.textContent = "Tap who said it."; err.hidden = false; return; }
+      if (!dq.who.length) { err.textContent = "Tap who said it."; err.hidden = false; return; }
       if (text.length < 3) { err.textContent = "Too short. Even he says more than that."; err.hidden = false; return; }
-      const list = items(mine("quotes"), MAX_ITEMS-1); list.push({ k:rid(), about:dq.about, text:text.slice(0,240), day:td, ts:Date.now() });
-      const who = dq.about;
-      if (await write("quotes",{items:list})) { draft.quote = { about:"", text:"" }; toast(`${firstNm(who)} is now on the record. Forever.`); confetti(); render(); }
+      const list = items(mine("quotes"), MAX_ITEMS-1); list.push({ k:rid(), about:dq.who[0], with:[...dq.who], text:text.slice(0,240), day:td, ts:Date.now() });
+      const who = joinNames(dq.who.map(firstNm));
+      if (await write("quotes",{items:list})) { draft.quote = { who:[], text:"" }; toast(`${who} ${dq.who.length > 1 ? "are" : "is"} now on the record. Forever.`); confetti(); render(); }
     }},
-      h("div",{class:"field"}, h("span",{class:"label"},"Who said it?"), personPicker(dq.about, u=>{ dq.about=u; render(); }, "Who said it")),
+      h("div",{class:"field"}, h("span",{class:"label"},"Who said it? Tap more than one for a conversation"), multiPicker(dq.who, "Who said it")),
       h("div",{class:"field"}, h("label",{class:"label",for:"q-text"},"Word for word"),
         h("textarea",{id:"q-text",maxlength:"240",value:dq.text,placeholder:"If plants are so smart why don't they just walk to the sun",oninput:e=>dq.text=e.target.value})),
       err, h("button",{class:"btn primary",type:"submit"},"Put it on the record")));
   const todays = D.quotes.filter(q=>q.day===td).sort((a,b)=>(D.qv[b.key]||0)-(D.qv[a.key]||0) || (b.ts||0)-(a.ts||0));
   const lead = todays[0] && (D.qv[todays[0].key]||0) > 0 ? todays[0] : null;
   const spot = lead ? h("div",{class:"card pink"}, h("div",{class:"head"}, h("span",{class:"label"},"Leading for quote of the day"), h("span",{class:"pill live"},`${fmtDur(secsToMidnight())} left`)),
-    h("div",{class:"bubble gold"}, `"${lead.text}"`), h("div",{class:"byline",style:"margin-top:18px"}, avatar(lead.about), h("strong",{style:"font-size:1.05rem"}, nm(lead.about)), h("span",null,`· ${D.qv[lead.key]} vote${D.qv[lead.key]===1?"":"s"}`))) : null;
+    h("div",{class:"bubble gold"}, `"${lead.text}"`), h("div",{class:"byline",style:"margin-top:18px"}, avatarStack(lead), h("strong",{style:"font-size:1.05rem"}, tagFull(lead)), h("span",null,`· ${D.qv[lead.key]} vote${D.qv[lead.key]===1?"":"s"}`))) : null;
   const list = h("div",{class:"card"}, h("div",{class:"head"}, h("h2",null,"Today's quotes"), h("span",{class:"small muted"}, "One vote a day")),
     todays.length ? todays.map(q=>quoteItem(q, myQv)) : emptyBox("Nobody said anything dumb yet.","Give it an hour."));
   return h("div",{class:"grid"}, h("div",{class:"stack"}, spot, list), h("div",{class:"stack"}, composer,
     h("button",{class:"btn",onclick:()=>{ S.memTab="weeks"; go("memories"); }},"Best quotes of every week →")));
 }
 function quoteItem(q, myQv){
-  const n = D.qv[q.key]||0, picked = myQv===q.key, isMine = q.author===S.uid, aboutMe = q.about===S.uid, live = q.day === D.td;
+  const n = D.qv[q.key]||0, picked = myQv===q.key, isMine = q.author===S.uid, aboutMe = q.tags.includes(S.uid), live = q.day === D.td;
   return h("div",{class:"qitem"}, h("div",{class:"bubble"}, `"${q.text}"`),
-    h("div",{class:"byline"}, avatar(q.about,"sm"), h("strong",null,nm(q.about)), h("span",null,`logged by ${firstNm(q.author)}`), h("span",{class:"sp"}),
+    h("div",{class:"byline"}, avatarStack(q,"sm"), h("strong",null,tagFull(q)), h("span",null,`logged by ${firstNm(q.author)}`), h("span",{class:"sp"}),
       h("span",{class:"mono"}, `${n} vote${n===1?"":"s"}`),
       isMine ? h("button",{class:"btn ghost",onclick:()=>deleteQuote(q)},"Delete") : null,
       aboutMe && !isMine ? h("button",{class:"btn ghost",onclick:()=>veto(q.key,"Struck from the record. We all still remember.")},"Strike it") : null,
       isMine || aboutMe || !live ? null : h("button",{class:"btn"+(picked?" hi":""),onclick:()=>voteQuote(q)}, picked ? "Your pick" : "Vote")),
-    roast(`quote:${q.key}`, "quote", { name:firstNm(q.about), text:q.text }, { day:q.day }),
+    roast(`quote:${q.key}`, "quote", { name:tagFirst(q), text:q.text }, { day:q.day }),
     commentsBox(`qc:${q.key}`));
 }
 async function voteQuote(q){
@@ -1173,8 +1193,8 @@ function memRoll(){
       h("div",{class:"thumbs"}, byMonth[m].map(thumb)))));
 }
 function thumb(p){
-  return h("button",{type:"button","aria-label":`${nm(p.about)} on ${fmtDay(p.day)}`,onclick:()=>lightbox(p.img, `${nm(p.about)} · ${fmtDay(p.day)}${p.caption ? " · " + p.caption : ""}`)},
-    h("img",{src:p.img,alt:p.caption||`Photo of ${nm(p.about)}`,loading:"lazy"}));
+  return h("button",{type:"button","aria-label":`${tagFull(p)} on ${fmtDay(p.day)}`,onclick:()=>lightbox(p.img, `${tagFull(p)} · ${fmtDay(p.day)}${p.caption ? " · " + p.caption : ""}`)},
+    h("img",{src:p.img,alt:p.caption||`Photo of ${tagFull(p)}`,loading:"lazy"}));
 }
 function weekRecap(per, L){
   const inWeek = d => d >= per.start && d <= per.end, done = per.end < D.td;
@@ -1196,8 +1216,8 @@ function weekRecap(per, L){
       law?.punishment ? row("⚖️", "Punishment", h("span",null, broke ? `${nm(broke.uid)} has to: ${law.punishment} (${broke.why})` : law.punishment)) : null,
       broke ? row("💸", "Brokest of the Week", h("span",null, `${nm(broke.uid)} · ${broke.why}`)) : null,
       mostNom ? row("⚖️", "Most charged", h("span",null, `${nm(mostNom)} · ${nomCount[mostNom]} charge${nomCount[mostNom]===1?"":"s"}`)) : null,
-      q ? row("🗣️", "Quote of the week", h("span",null, h("strong",null,`"${q.text}"`), ` — ${firstNm(q.about)}`)) : null,
-      p ? row("📸", "Moment of the week", h("button",{class:"linkbtn",onclick:()=>lightbox(p.img, `${nm(p.about)}: ${p.caption}`)}, `${firstNm(p.about)}: ${p.caption || "view photo"}`)) : null,
+      q ? row("🗣️", "Quote of the week", h("span",null, h("strong",null,`"${q.text}"`), ` — ${tagFirst(q)}`)) : null,
+      p ? row("📸", "Moment of the week", h("button",{class:"linkbtn",onclick:()=>lightbox(p.img, `${tagFull(p)}: ${p.caption}`)}, `${tagFirst(p)}: ${p.caption || "view photo"}`)) : null,
       acq ? row("😇", "Got away with it", h("span",null, `${acq} acquittal${acq===1?"":"s"}`)) : null,
       done && winners.length ? roast(`week:${per.key}`, "week", { name:firstNm(winners[0]), text:[q && q.text, mostNom && `${firstNm(mostNom)} was charged ${nomCount[mostNom]} times`].filter(Boolean).join(" | ") }, { day:per.end >= addDays(D.td,-8) ? D.td : per.end }) : null,
       done && winners.length ? h("button",{class:"btn",onclick:()=>shareStory({ title:"Him of the Week", when:periodName(per), uid:winners[0], names:winners.map(nm).join(" & "), line: q ? `"${q.text}"` : "" })},"📲 Share to Story") : null]);
@@ -1290,8 +1310,8 @@ function viewMe(L){
       h("div",{class:"stat"}, h("span",null,"Title"), h("strong",null, titleFor(tr.day))),
       h("div",{class:"stat"}, h("span",null,"Him Points this week"), h("span",{class:"mono"}, myWeek)),
       h("div",{class:"stat"}, h("span",null,"Times charged"), h("span",{class:"mono"}, D.noms.filter(n=>n.about===S.uid).length)),
-      h("div",{class:"stat"}, h("span",null,"Times quoted"), h("span",{class:"mono"}, D.quotes.filter(q=>q.about===S.uid).length)),
-      h("div",{class:"stat"}, h("span",null,"Moments of you"), h("span",{class:"mono"}, D.photos.filter(x=>x.about===S.uid).length)),
+      h("div",{class:"stat"}, h("span",null,"Times quoted"), h("span",{class:"mono"}, D.quotes.filter(q=>q.tags.includes(S.uid)).length)),
+      h("div",{class:"stat"}, h("span",null,"Moments of you"), h("span",{class:"mono"}, D.photos.filter(x=>x.tags.includes(S.uid)).length)),
       h("div",{class:"stat"}, h("span",null,"Himbucks"), h("span",{class:"mono"}, (L.bal[S.uid]||0).toLocaleString())),
       h("div",{class:"stat"}, h("span",null,"Member since"), h("span",{class:"mono"}, fmtDay(p.joined||D.td)))));
   const notif = h("div",{class:"card"}, h("h3",{style:"margin-bottom:8px"},"Notifications"),
@@ -1465,14 +1485,14 @@ function reelItems(){
   return out.slice(0, 300);
 }
 function reelCard(it){
-  const who = (uid, sub) => h("div",{class:"rwho"}, avatar(uid,"sm"), h("b",null, nm(uid)), sub ? h("span",null, sub) : null);
+  const who = (x, sub) => h("div",{class:"rwho"}, typeof x === "string" ? avatar(x,"sm") : avatarStack(x,"sm"), h("b",null, typeof x === "string" ? nm(x) : tagFull(x)), sub ? h("span",null, sub) : null);
   if (it.type === "moment") {
     const p = it.p;
     return h("section",{class:"reel"},
-      h("img",{class:"bg",src:p.img,alt:p.caption||`Photo of ${nm(p.about)}`,loading:"lazy"}), h("div",{class:"shade"}),
-      h("div",{class:"info"}, h("span",{class:"rtag"},"📸 MOMENT"), who(p.about, fmtDay(p.day)),
+      h("img",{class:"bg",src:p.img,alt:p.caption||`Photo of ${tagFull(p)}`,loading:"lazy"}), h("div",{class:"shade"}),
+      h("div",{class:"info"}, h("span",{class:"rtag"},"📸 MOMENT"), who(p, fmtDay(p.day)),
         p.caption ? h("p",{class:"rcap"}, p.caption) : null,
-        roast(`moment:${p.key}`, "moment", { name:firstNm(p.about) }), reactBar(p),
+        roast(`moment:${p.key}`, "moment", { name:tagFirst(p) }), reactBar(p),
         h("span",{class:"rsmall"}, `snapped by ${firstNm(p.author)}${(D.comments[`pc:${p.key}`]||[]).length ? ` · 💬 ${(D.comments[`pc:${p.key}`]).length}` : ""}`)));
   }
   const bg = `background:${REEL_COLORS[coin(it.key) % REEL_COLORS.length]}`;
@@ -1480,7 +1500,7 @@ function reelCard(it){
     const q = it.q;
     return h("section",{class:"reel",style:bg},
       h("div",{class:"bigq"}, `"${q.text}"`),
-      h("div",{class:"info"}, h("span",{class:"rtag"},"🗣️ QUOTE"), who(q.about, fmtDay(q.day)), roast(`quote:${q.key}`, "quote", { name:firstNm(q.about) }),
+      h("div",{class:"info"}, h("span",{class:"rtag"},"🗣️ QUOTE"), who(q, fmtDay(q.day)), roast(`quote:${q.key}`, "quote", { name:tagFirst(q) }),
         h("span",{class:"rsmall"}, `${D.qv[q.key]||0} vote${(D.qv[q.key]||0)===1?"":"s"} · logged by ${firstNm(q.author)}`)));
   }
   if (it.type === "charge") {

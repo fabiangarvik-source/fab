@@ -21,10 +21,17 @@ function commentsBox(target, label = "Talk trash"){
 }
 async function delComment(c){ await write("comments",{ items:items(mine("comments")).filter(x=>x.k!==c.k) }); render(); }
 
-function personPicker(selected, onPick, label, includeSelf){
+/* Tap several people; tap again to untag. */
+function multiPicker(selected, label, includeSelf){
   const list = members().filter(u=>includeSelf || u!==S.uid).sort((a,b)=>nm(a).localeCompare(nm(b)));
   if (!list.length) return h("p",{class:"muted small"},"Nobody else has joined yet. Send them the link.");
-  return h("div",{class:"people",role:"group","aria-label":label}, list.map(u=>h("button",{type:"button",class:"person","aria-pressed":String(selected===u),onclick:()=>onPick(u)}, avatar(u), firstNm(u))));
+  return h("div",{class:"people",role:"group","aria-label":label}, list.map(u=>h("button",{type:"button",class:"person","aria-pressed":String(selected.includes(u)),onclick:()=>{
+    const i = selected.indexOf(u);
+    if (i >= 0) selected.splice(i, 1);
+    else if (selected.length >= MAX_TAGS) { toast(`Max ${MAX_TAGS} people. It's a moment, not a team photo.`); return; }
+    else selected.push(u);
+    render();
+  }}, avatar(u), firstNm(u))));
 }
 async function veto(key, msg){ const keys = [...(mine("vetoes").keys||[]), key].slice(-1000); if (await write("vetoes",{keys})) toast(msg); }
 
@@ -45,7 +52,7 @@ function renderWho(L){
 function renderTicker(){
   const lines = [];
   for (const n of (D.noms||[]).filter(n=>n.day===D.td).slice(-5)) lines.push(["CHARGED", `${firstNm(n.about)}: ${n.reason}`]);
-  for (const q of (D.quotes||[]).filter(q=>q.day===D.td).slice(0,5)) lines.push([firstNm(q.about).toUpperCase()+" SAYS", `"${q.text}"`]);
+  for (const q of (D.quotes||[]).filter(q=>q.day===D.td).slice(0,5)) lines.push([tagFirst(q).toUpperCase()+(q.tags.length>1?" SAY":" SAYS"), `"${q.text}"`]);
   const t = D.dv?.[D.td] || {}; const lead = Object.keys(t).sort((a,b)=>t[b]-t[a])[0];
   if (lead) lines.push(["LIVE", `${nm(lead)} leads today's race with ${t[lead]} vote${t[lead]===1?"":"s"}`]);
   for (const f of FILLER) lines.push(["HIMBO NEWS", f]);

@@ -52,14 +52,14 @@ function reelItems(){
   return out.slice(0, 300);
 }
 function reelCard(it){
-  const who = (uid, sub) => h("div",{class:"rwho"}, avatar(uid,"sm"), h("b",null, nm(uid)), sub ? h("span",null, sub) : null);
+  const who = (x, sub) => h("div",{class:"rwho"}, typeof x === "string" ? avatar(x,"sm") : avatarStack(x,"sm"), h("b",null, typeof x === "string" ? nm(x) : tagFull(x)), sub ? h("span",null, sub) : null);
   if (it.type === "moment") {
     const p = it.p;
     return h("section",{class:"reel"},
-      h("img",{class:"bg",src:p.img,alt:p.caption||`Photo of ${nm(p.about)}`,loading:"lazy"}), h("div",{class:"shade"}),
-      h("div",{class:"info"}, h("span",{class:"rtag"},"📸 MOMENT"), who(p.about, fmtDay(p.day)),
+      h("img",{class:"bg",src:p.img,alt:p.caption||`Photo of ${tagFull(p)}`,loading:"lazy"}), h("div",{class:"shade"}),
+      h("div",{class:"info"}, h("span",{class:"rtag"},"📸 MOMENT"), who(p, fmtDay(p.day)),
         p.caption ? h("p",{class:"rcap"}, p.caption) : null,
-        roast(`moment:${p.key}`, "moment", { name:firstNm(p.about) }), reactBar(p),
+        roast(`moment:${p.key}`, "moment", { name:tagFirst(p) }), reactBar(p),
         h("span",{class:"rsmall"}, `snapped by ${firstNm(p.author)}${(D.comments[`pc:${p.key}`]||[]).length ? ` · 💬 ${(D.comments[`pc:${p.key}`]).length}` : ""}`)));
   }
   const bg = `background:${REEL_COLORS[coin(it.key) % REEL_COLORS.length]}`;
@@ -67,7 +67,7 @@ function reelCard(it){
     const q = it.q;
     return h("section",{class:"reel",style:bg},
       h("div",{class:"bigq"}, `"${q.text}"`),
-      h("div",{class:"info"}, h("span",{class:"rtag"},"🗣️ QUOTE"), who(q.about, fmtDay(q.day)), roast(`quote:${q.key}`, "quote", { name:firstNm(q.about) }),
+      h("div",{class:"info"}, h("span",{class:"rtag"},"🗣️ QUOTE"), who(q, fmtDay(q.day)), roast(`quote:${q.key}`, "quote", { name:tagFirst(q) }),
         h("span",{class:"rsmall"}, `${D.qv[q.key]||0} vote${(D.qv[q.key]||0)===1?"":"s"} · logged by ${firstNm(q.author)}`)));
   }
   if (it.type === "charge") {

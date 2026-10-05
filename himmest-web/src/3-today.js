@@ -248,17 +248,17 @@ function viewMoments(){
     h("p",{class:"muted small",style:"margin-bottom:12px"},"Caught someone mid-himbo? Evidence or it didn't happen."),
     dm.img ? h("form",{onsubmit:async e=>{
         e.preventDefault(); err.hidden = true;
-        if (!dm.about) { err.textContent = "Tap who's in the photo."; err.hidden = false; return; }
+        if (!dm.who.length) { err.textContent = "Tap who's in the photo."; err.hidden = false; return; }
         const sb = e.submitter; if (sb) sb.disabled = true;
         let url; try { url = await uploadImg("photo", await memeify(dm.img, dm.top, dm.bottom)); } catch(x) { err.textContent = x.message; err.hidden = false; if (sb) sb.disabled = false; return; }
         const list = items(mine("photos"), MAX_ITEMS-1).filter(x=>okImg(x.img));
-        list.push({ k:rid(), about:dm.about, caption:dm.caption.trim().slice(0,140), day:td, ts:Date.now(), img:url, meme:!!((dm.top||"").trim() || (dm.bottom||"").trim()) || undefined });
-        const who = dm.about;
-        if (await write("photos",{items:list})) { draft.moment = { img:null, about:"", caption:"", top:"", bottom:"" }; toast(`Posted. ${firstNm(who)} will never live this down.`); confetti(); render(); }
+        list.push({ k:rid(), about:dm.who[0], with:[...dm.who], caption:dm.caption.trim().slice(0,140), day:td, ts:Date.now(), img:url, meme:!!((dm.top||"").trim() || (dm.bottom||"").trim()) || undefined });
+        const who = joinNames(dm.who.map(firstNm));
+        if (await write("photos",{items:list})) { draft.moment = { img:null, who:[], caption:"", top:"", bottom:"" }; toast(`Posted. ${who} will never live this down.`); confetti(); render(); }
         else if (sb) sb.disabled = false;
       }},
       memePreview(dm),
-      h("div",{class:"field"}, h("span",{class:"label"},"Who's the him?"), personPicker(dm.about, u=>{ dm.about=u; render(); }, "Who's in the photo", true)),
+      h("div",{class:"field"}, h("span",{class:"label"},`Who's in it? Tap everyone (max ${MAX_TAGS})`), multiPicker(dm.who, "Who's in the photo", true)),
       h("div",{class:"field"}, h("label",{class:"label",for:"m-cap"},"Caption"),
         h("input",{id:"m-cap",maxlength:"140",value:dm.caption,placeholder:"pushed a pull door for two full minutes",oninput:e=>dm.caption=e.target.value})),
       err,
@@ -278,17 +278,17 @@ function viewMoments(){
     h("button",{class:"btn",onclick:()=>{ S.memTab="roll"; go("memories"); }},"See every moment ever in Memories →"));
 }
 function reactBar(p){
-  const r = D.rc[p.key] || {}, mineR = mine("reacts").map?.[p.key], self = p.about === S.uid;
+  const r = D.rc[p.key] || {}, mineR = mine("reacts").map?.[p.key], self = p.tags.includes(S.uid);
   return h("div",{class:"reacts"}, Object.entries(REACTS).map(([k,[e,label]]) =>
     h("button",{class:"react","aria-pressed":String(mineR===k),disabled:self,title:self?"You can't react to yourself":label,"aria-label":`${label}: ${r[k]||0}`,onclick:()=>react(p,k)}, e, h("span",{class:"mono small"}, r[k]||0))));
 }
 function momentCard(p){
-  const isMine = p.author===S.uid, aboutMe = p.about===S.uid;
+  const isMine = p.author===S.uid, aboutMe = p.tags.includes(S.uid);
   return h("div",{class:"moment"},
-    h("button",{class:"pic",type:"button","aria-label":`Open photo of ${nm(p.about)}`,onclick:()=>lightbox(p.img, p.caption ? `${nm(p.about)}: ${p.caption}` : nm(p.about))}, h("img",{src:p.img,alt:p.caption||`Photo of ${nm(p.about)}`,loading:"lazy"})),
-    h("div",{class:"byline"}, avatar(p.about,"sm"), h("strong",null,nm(p.about)), h("span",{class:"sp"}), h("span",null, p.day===D.td ? "today" : fmtDay(p.day))),
+    h("button",{class:"pic",type:"button","aria-label":`Open photo of ${tagFull(p)}`,onclick:()=>lightbox(p.img, p.caption ? `${tagFull(p)}: ${p.caption}` : tagFull(p))}, h("img",{src:p.img,alt:p.caption||`Photo of ${nm(p.about)}`,loading:"lazy"})),
+    h("div",{class:"byline"}, avatarStack(p,"sm"), h("strong",null,tagFull(p)), h("span",{class:"sp"}), h("span",null, p.day===D.td ? "today" : fmtDay(p.day))),
     p.caption ? h("div",{class:"cap"}, p.caption) : null,
-    roast(`moment:${p.key}`, "moment", { name:firstNm(p.about), text:p.caption || "a photo" }, { day:p.day, img:imgKey(p.img) }),
+    roast(`moment:${p.key}`, "moment", { name:tagFirst(p), text:p.caption || "a photo" }, { day:p.day, img:imgKey(p.img) }),
     reactBar(p),
     h("div",{class:"byline"}, h("span",null,`snapped by ${firstNm(p.author)}`), h("span",{class:"sp"}),
       isMine ? h("button",{class:"btn ghost",onclick:()=>deletePhoto(p)},"Delete") : null,
@@ -312,34 +312,34 @@ function viewQuotes(){
     h("form",{onsubmit:async e=>{
       e.preventDefault(); err.hidden = true;
       const text = dq.text.trim().replace(/^["“]+|["”]+$/g,"");
-      if (!dq.about) { err.textContent = "Tap who said it."; err.hidden = false; return; }
+      if (!dq.who.length) { err.textContent = "Tap who said it."; err.hidden = false; return; }
       if (text.length < 3) { err.textContent = "Too short. Even he says more than that."; err.hidden = false; return; }
-      const list = items(mine("quotes"), MAX_ITEMS-1); list.push({ k:rid(), about:dq.about, text:text.slice(0,240), day:td, ts:Date.now() });
-      const who = dq.about;
-      if (await write("quotes",{items:list})) { draft.quote = { about:"", text:"" }; toast(`${firstNm(who)} is now on the record. Forever.`); confetti(); render(); }
+      const list = items(mine("quotes"), MAX_ITEMS-1); list.push({ k:rid(), about:dq.who[0], with:[...dq.who], text:text.slice(0,240), day:td, ts:Date.now() });
+      const who = joinNames(dq.who.map(firstNm));
+      if (await write("quotes",{items:list})) { draft.quote = { who:[], text:"" }; toast(`${who} ${dq.who.length > 1 ? "are" : "is"} now on the record. Forever.`); confetti(); render(); }
     }},
-      h("div",{class:"field"}, h("span",{class:"label"},"Who said it?"), personPicker(dq.about, u=>{ dq.about=u; render(); }, "Who said it")),
+      h("div",{class:"field"}, h("span",{class:"label"},"Who said it? Tap more than one for a conversation"), multiPicker(dq.who, "Who said it")),
       h("div",{class:"field"}, h("label",{class:"label",for:"q-text"},"Word for word"),
         h("textarea",{id:"q-text",maxlength:"240",value:dq.text,placeholder:"If plants are so smart why don't they just walk to the sun",oninput:e=>dq.text=e.target.value})),
       err, h("button",{class:"btn primary",type:"submit"},"Put it on the record")));
   const todays = D.quotes.filter(q=>q.day===td).sort((a,b)=>(D.qv[b.key]||0)-(D.qv[a.key]||0) || (b.ts||0)-(a.ts||0));
   const lead = todays[0] && (D.qv[todays[0].key]||0) > 0 ? todays[0] : null;
   const spot = lead ? h("div",{class:"card pink"}, h("div",{class:"head"}, h("span",{class:"label"},"Leading for quote of the day"), h("span",{class:"pill live"},`${fmtDur(secsToMidnight())} left`)),
-    h("div",{class:"bubble gold"}, `"${lead.text}"`), h("div",{class:"byline",style:"margin-top:18px"}, avatar(lead.about), h("strong",{style:"font-size:1.05rem"}, nm(lead.about)), h("span",null,`· ${D.qv[lead.key]} vote${D.qv[lead.key]===1?"":"s"}`))) : null;
+    h("div",{class:"bubble gold"}, `"${lead.text}"`), h("div",{class:"byline",style:"margin-top:18px"}, avatarStack(lead), h("strong",{style:"font-size:1.05rem"}, tagFull(lead)), h("span",null,`· ${D.qv[lead.key]} vote${D.qv[lead.key]===1?"":"s"}`))) : null;
   const list = h("div",{class:"card"}, h("div",{class:"head"}, h("h2",null,"Today's quotes"), h("span",{class:"small muted"}, "One vote a day")),
     todays.length ? todays.map(q=>quoteItem(q, myQv)) : emptyBox("Nobody said anything dumb yet.","Give it an hour."));
   return h("div",{class:"grid"}, h("div",{class:"stack"}, spot, list), h("div",{class:"stack"}, composer,
     h("button",{class:"btn",onclick:()=>{ S.memTab="weeks"; go("memories"); }},"Best quotes of every week →")));
 }
 function quoteItem(q, myQv){
-  const n = D.qv[q.key]||0, picked = myQv===q.key, isMine = q.author===S.uid, aboutMe = q.about===S.uid, live = q.day === D.td;
+  const n = D.qv[q.key]||0, picked = myQv===q.key, isMine = q.author===S.uid, aboutMe = q.tags.includes(S.uid), live = q.day === D.td;
   return h("div",{class:"qitem"}, h("div",{class:"bubble"}, `"${q.text}"`),
-    h("div",{class:"byline"}, avatar(q.about,"sm"), h("strong",null,nm(q.about)), h("span",null,`logged by ${firstNm(q.author)}`), h("span",{class:"sp"}),
+    h("div",{class:"byline"}, avatarStack(q,"sm"), h("strong",null,tagFull(q)), h("span",null,`logged by ${firstNm(q.author)}`), h("span",{class:"sp"}),
       h("span",{class:"mono"}, `${n} vote${n===1?"":"s"}`),
       isMine ? h("button",{class:"btn ghost",onclick:()=>deleteQuote(q)},"Delete") : null,
       aboutMe && !isMine ? h("button",{class:"btn ghost",onclick:()=>veto(q.key,"Struck from the record. We all still remember.")},"Strike it") : null,
       isMine || aboutMe || !live ? null : h("button",{class:"btn"+(picked?" hi":""),onclick:()=>voteQuote(q)}, picked ? "Your pick" : "Vote")),
-    roast(`quote:${q.key}`, "quote", { name:firstNm(q.about), text:q.text }, { day:q.day }),
+    roast(`quote:${q.key}`, "quote", { name:tagFirst(q), text:q.text }, { day:q.day }),
     commentsBox(`qc:${q.key}`));
 }
 async function voteQuote(q){

@@ -34,13 +34,14 @@ export async function notifyChanges(uid, col, before, after) {
   const who = await firstName(uid);
   for (const item of fresh) {
     if (col === "comments") continue;
-    if (!item.about || item.about === uid) continue;
+    const tagged = [...new Set(Array.isArray(item.with) && item.with.length ? item.with : [item.about])].filter(u => u && u !== uid).slice(0, 5);
+    if (!tagged.length) continue;
     const msg = {
       photos: { title: `👀 ${who} just posted a moment of you`, body: item.caption || "Go see how bad it is." },
       noms: { title: `⚖️ ${who} nominated you for Himmest`, body: `Charge: ${item.reason || "being you"}` },
       quotes: { title: `🗣️ ${who} put you on the record`, body: `"${String(item.text || "").slice(0, 120)}"` },
     }[col];
-    await pushTo([item.about], { ...msg, url: "/" });
+    await pushTo(tagged, { ...msg, url: "/" });
   }
 }
 

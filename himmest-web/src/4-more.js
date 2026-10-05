@@ -74,8 +74,8 @@ function memRoll(){
       h("div",{class:"thumbs"}, byMonth[m].map(thumb)))));
 }
 function thumb(p){
-  return h("button",{type:"button","aria-label":`${nm(p.about)} on ${fmtDay(p.day)}`,onclick:()=>lightbox(p.img, `${nm(p.about)} · ${fmtDay(p.day)}${p.caption ? " · " + p.caption : ""}`)},
-    h("img",{src:p.img,alt:p.caption||`Photo of ${nm(p.about)}`,loading:"lazy"}));
+  return h("button",{type:"button","aria-label":`${tagFull(p)} on ${fmtDay(p.day)}`,onclick:()=>lightbox(p.img, `${tagFull(p)} · ${fmtDay(p.day)}${p.caption ? " · " + p.caption : ""}`)},
+    h("img",{src:p.img,alt:p.caption||`Photo of ${tagFull(p)}`,loading:"lazy"}));
 }
 function weekRecap(per, L){
   const inWeek = d => d >= per.start && d <= per.end, done = per.end < D.td;
@@ -97,8 +97,8 @@ function weekRecap(per, L){
       law?.punishment ? row("⚖️", "Punishment", h("span",null, broke ? `${nm(broke.uid)} has to: ${law.punishment} (${broke.why})` : law.punishment)) : null,
       broke ? row("💸", "Brokest of the Week", h("span",null, `${nm(broke.uid)} · ${broke.why}`)) : null,
       mostNom ? row("⚖️", "Most charged", h("span",null, `${nm(mostNom)} · ${nomCount[mostNom]} charge${nomCount[mostNom]===1?"":"s"}`)) : null,
-      q ? row("🗣️", "Quote of the week", h("span",null, h("strong",null,`"${q.text}"`), ` — ${firstNm(q.about)}`)) : null,
-      p ? row("📸", "Moment of the week", h("button",{class:"linkbtn",onclick:()=>lightbox(p.img, `${nm(p.about)}: ${p.caption}`)}, `${firstNm(p.about)}: ${p.caption || "view photo"}`)) : null,
+      q ? row("🗣️", "Quote of the week", h("span",null, h("strong",null,`"${q.text}"`), ` — ${tagFirst(q)}`)) : null,
+      p ? row("📸", "Moment of the week", h("button",{class:"linkbtn",onclick:()=>lightbox(p.img, `${tagFull(p)}: ${p.caption}`)}, `${tagFirst(p)}: ${p.caption || "view photo"}`)) : null,
       acq ? row("😇", "Got away with it", h("span",null, `${acq} acquittal${acq===1?"":"s"}`)) : null,
       done && winners.length ? roast(`week:${per.key}`, "week", { name:firstNm(winners[0]), text:[q && q.text, mostNom && `${firstNm(mostNom)} was charged ${nomCount[mostNom]} times`].filter(Boolean).join(" | ") }, { day:per.end >= addDays(D.td,-8) ? D.td : per.end }) : null,
       done && winners.length ? h("button",{class:"btn",onclick:()=>shareStory({ title:"Him of the Week", when:periodName(per), uid:winners[0], names:winners.map(nm).join(" & "), line: q ? `"${q.text}"` : "" })},"📲 Share to Story") : null]);
@@ -191,8 +191,8 @@ function viewMe(L){
       h("div",{class:"stat"}, h("span",null,"Title"), h("strong",null, titleFor(tr.day))),
       h("div",{class:"stat"}, h("span",null,"Him Points this week"), h("span",{class:"mono"}, myWeek)),
       h("div",{class:"stat"}, h("span",null,"Times charged"), h("span",{class:"mono"}, D.noms.filter(n=>n.about===S.uid).length)),
-      h("div",{class:"stat"}, h("span",null,"Times quoted"), h("span",{class:"mono"}, D.quotes.filter(q=>q.about===S.uid).length)),
-      h("div",{class:"stat"}, h("span",null,"Moments of you"), h("span",{class:"mono"}, D.photos.filter(x=>x.about===S.uid).length)),
+      h("div",{class:"stat"}, h("span",null,"Times quoted"), h("span",{class:"mono"}, D.quotes.filter(q=>q.tags.includes(S.uid)).length)),
+      h("div",{class:"stat"}, h("span",null,"Moments of you"), h("span",{class:"mono"}, D.photos.filter(x=>x.tags.includes(S.uid)).length)),
       h("div",{class:"stat"}, h("span",null,"Himbucks"), h("span",{class:"mono"}, (L.bal[S.uid]||0).toLocaleString())),
       h("div",{class:"stat"}, h("span",null,"Member since"), h("span",{class:"mono"}, fmtDay(p.joined||D.td)))));
   const notif = h("div",{class:"card"}, h("h3",{style:"margin-bottom:8px"},"Notifications"),

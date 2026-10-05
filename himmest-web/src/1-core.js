@@ -164,7 +164,7 @@ const pick = (arr, seed) => { let x = 0; for (const c of String(seed)) x = (x*31
 const S = { uid:null, email:"", tab:"today", rankTab:"week", memTab:"roll", loaded:new Set(), push:"unknown",
   openComments:new Set(), cdraft:{}, reelShuffle:"", reasonFor:null, kingOpen:false, showAppeal:false };
 for (const c of COLS) S[c] = {};
-const draft = { moment:{ img:null, about:"", caption:"", top:"", bottom:"" }, quote:{ about:"", text:"" }, nom:{ about:"", reason:"" }, reign:{ for:"", reward:"", punishment:"", photo:null },
+const draft = { moment:{ img:null, who:[], caption:"", top:"", bottom:"" }, quote:{ who:[], text:"" }, nom:{ about:"", reason:"" }, reign:{ for:"", reward:"", punishment:"", photo:null },
   bets:{ week:{on:"",amt:""}, month:{on:"",amt:""}, year:{on:"",amt:""} } };
 try { const t = localStorage.getItem("himmest.tab"); if (t && t !== "bets") S.tab = t; } catch {}
 let D = null, V = "", authed = null;
@@ -196,6 +196,17 @@ function avatar(uid, size){
   const ini = p ? (((p.first||"?")[0]||"")+((p.last||"")[0]||"")).toUpperCase() : "?";
   return h("div",{class:cls,"aria-hidden":"true",style}, ini);
 }
+/* Everyone tagged in a moment or quote (max 5). Older posts only have "about". */
+const MAX_TAGS = 5;
+function tagsOf(x){
+  const list = Array.isArray(x.with) && x.with.length ? x.with : [x.about];
+  return [...new Set(list)].filter(isMember).slice(0, MAX_TAGS);
+}
+/* "Jake", "Jake & Igor", "Jake, Igor & Ola" */
+function joinNames(names){ return names.length <= 1 ? (names[0] || "") : names.slice(0,-1).join(", ") + " & " + names[names.length-1]; }
+const tagFirst = x => joinNames((x.tags || [x.about]).map(firstNm));
+const tagFull = x => (x.tags || [x.about]).length > 1 ? tagFirst(x) : nm(x.about);
+function avatarStack(x, size){ return h("span",{class:"avstack"}, (x.tags || [x.about]).map(u=>avatar(u, size))); }
 function titleFor(n){ let t=TITLES[0][1]; for (const [k,s] of TITLES) if (n>=k) t=s; return t; }
 function emptyBox(t, s){ return h("div",{class:"empty"}, h("strong",null,t), s); }
 const items = (doc, max = MAX_ITEMS) => (doc?.items || []).slice(-max);
@@ -208,17 +219,19 @@ function derive(){
   for (const [author, doc] of Object.entries(S.quotes)) {
     if (!isMember(author)) continue;
     for (const q of items(doc)) {
-      if (!q || typeof q.text !== "string" || !isMember(q.about) || typeof q.day !== "string") continue;
+      if (!q || typeof q.text !== "string" || typeof q.day !== "string") continue;
+      const tags = tagsOf(q); if (!tags.length) continue;
       const key = `${author}:${q.k}`;
-      if (!vetoed(q.about, key)) quotes.push({ ...q, text:q.text.slice(0,240), author, key });
+      if (!tags.some(u=>vetoed(u, key))) quotes.push({ ...q, about:tags[0], tags, text:q.text.slice(0,240), author, key });
     }
   }
   for (const [author, doc] of Object.entries(S.photos)) {
     if (!isMember(author)) continue;
     for (const p of items(doc)) {
-      if (!p || !okImg(p.img) || !isMember(p.about) || typeof p.day !== "string") continue;
+      if (!p || !okImg(p.img) || typeof p.day !== "string") continue;
+      const tags = tagsOf(p); if (!tags.length) continue;
       const key = `p:${author}:${p.k}`;
-      if (!vetoed(p.about, key)) photos.push({ ...p, caption:String(p.caption||"").slice(0,140), author, key });
+      if (!tags.some(u=>vetoed(u, key))) photos.push({ ...p, about:tags[0], tags, caption:String(p.caption||"").slice(0,140), author, key });
     }
   }
   for (const [author, doc] of Object.entries(S.noms)) {
@@ -275,7 +288,7 @@ function derive(){
     if (!isMember(voter)) continue;
     for (const [d, k] of Object.entries(v?.days||{})) {
       const q = qByKey.get(k);
-      if (!q || q.day !== d || voter === q.author || voter === q.about) continue;
+      if (!q || q.day !== d || voter === q.author || q.tags.includes(voter)) continue;
       qv[k] = (qv[k]||0) + 1;
     }
   }
@@ -284,7 +297,7 @@ function derive(){
     if (!isMember(who)) continue;
     for (const [k, type] of Object.entries(doc?.map||{})) {
       const p = pByKey.get(k);
-      if (!p || !REACTS[type] || who === p.about) continue;
+      if (!p || !REACTS[type] || p.tags.includes(who)) continue;
       const r = (rc[k] ||= { total:0 }); r[type] = (r[type]||0) + 1; r.total++;
     }
   }
@@ -293,7 +306,7 @@ function derive(){
     const byDay = {}; for (const x of list) if (x.day < td) (byDay[x.day] ||= []).push(x);
     for (const [d, xs] of Object.entries(byDay)) {
       const max = Math.max(0, ...xs.map(score)); if (!max) continue;
-      const winners = new Set(xs.filter(x=>score(x)===max).map(x=>x.about));
+      const winners = new Set(xs.filter(x=>score(x)===max).flatMap(x=>x.tags));
       for (const u of winners) add(d, u, bonus, kind);
     }
   };
