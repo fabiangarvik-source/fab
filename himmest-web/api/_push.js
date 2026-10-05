@@ -43,3 +43,32 @@ export async function notifyChanges(uid, col, before, after) {
     await pushTo([item.about], { ...msg, url: "/" });
   }
 }
+
+/* People with a profile who haven't cast a counted vote today (votes only count from 5 PM Eastern). */
+export async function nonVoters(today) {
+  const { etDay, etHour, VOTE_OPEN_HOUR } = await import("./_lib.js");
+  const rows = await sql`SELECT p.uid, p.data->>'first' AS first, v.data AS votes
+    FROM docs p LEFT JOIN docs v ON v.uid = p.uid AND v.col = 'votes' WHERE p.col = 'profiles'`;
+  return rows.filter(r => {
+    const at = r.votes?.at?.[today];
+    const ok = r.votes?.days?.[today] && at && etDay(new Date(at)) === today && etHour(new Date(at)) >= VOTE_OPEN_HOUR;
+    return !ok;
+  }).map(r => ({ uid:r.uid, first:r.first || "Hey" }));
+}
+const NUDGES = [
+  ["{name}, why haven't you voted, bitchass? 🗳️", "{done} of the boys already voted. You're holding up democracy."],
+  ["{name}, why haven't you voted, bitchass? 🗳️", "Polls close at midnight. Stop being useless."],
+  ["{name}, why haven't you voted, bitchass? 🗳️", "Even the Himmest voted. Think about that."],
+];
+/* One personal nudge to everyone who hasn't voted. Returns how many people it went to. */
+export async function nudgeNonVoters(today, totalMembers) {
+  const slackers = await nonVoters(today);
+  const done = Math.max(0, totalMembers - slackers.length);
+  let n = 0;
+  for (const s of slackers) {
+    const [t, b] = NUDGES[Math.floor(Math.random() * NUDGES.length)];
+    const sent = await pushTo([s.uid], { title: t.replace("{name}", s.first), body: b.replace("{done}", done), url: "/" });
+    if (sent) n++;
+  }
+  return { slackers: slackers.length, reached: n };
+}

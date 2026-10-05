@@ -173,6 +173,21 @@ async function vote(uid){
     render(); scrollTo({top:0,behavior:"smooth"});
   }
 }
+/* While voting is open: shame everyone who hasn't voted with one push. Once per day for the whole group. */
+function nudgeCard(){
+  if (!votingOpen()) return null;
+  const slackers = members().filter(u => !voteCounts(u, D.td));
+  if (!slackers.length) return h("div",{class:"card",style:"text-align:center;font-weight:700"},"✅ Everyone has voted. Shockingly responsible.");
+  return h("div",{class:"card pink pushcard"},
+    h("div",{style:"flex:1;min-width:12rem"},
+      h("h3",null,`${slackers.length} slacker${slackers.length===1?"":"s"} haven't voted`),
+      h("div",{style:"display:flex;gap:4px;margin-top:6px;flex-wrap:wrap"}, slackers.slice(0,10).map(u=>avatar(u,"sm")))),
+    h("button",{class:"btn pop",onclick:async e=>{
+      e.currentTarget.disabled = true;
+      try { const r = await api("/api/nudge",{ method:"POST" }); toast(r.reached ? `🔔 Nudged ${r.reached} slacker${r.reached===1?"":"s"}. "Why haven't you voted, bitchass?"` : "Nudge sent, but none of the slackers have notifications on. Cowards."); confetti(); }
+      catch(x){ toast(x.message); }
+    }},"🔔 Nudge the slackers"));
+}
 function receiptsCard(day){
   const r = D.receipts[day] || [];
   if (!r.length) return null;
@@ -212,7 +227,7 @@ function viewToday(L){
       h("li",null,"Bet on who wins before Wednesday midnight (launch week: Saturday). Whoever loses the most Himbucks does the punishment. Didn't bet? Then it's you."),
       h("li",null,"Got votes? You can appeal once. Win the trial and your votes don't count.")));
   return h("div",{class:"stack"},
-    pushCard(), kingStrip(L), reasonCard(), hero,
+    pushCard(), kingStrip(L), reasonCard(), hero, nudgeCard(),
     suspects.length ? h("div",{class:"stack"}, h("div",{class:"head",style:"margin:0"}, h("h2",null,"Today's suspects"), h("span",{class:"small muted"}, myVote ? `You voted ${firstNm(myVote)}.` : "One vote a day.")),
       suspects.map(u=>suspectCard(u, t, top, myVote))) : null,
     members().length < 2 ? h("div",{class:"card"}, emptyBox("You're alone in here.","Send the link to the boys. You can't vote for yourself, sadly.")) : picker,

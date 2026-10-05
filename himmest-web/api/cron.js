@@ -1,5 +1,5 @@
 import { sql, wrap, httpError, etDay, etHour, VOTE_OPEN_HOUR } from "./_lib.js";
-import { pushTo } from "./_push.js";
+import { pushTo, nudgeNonVoters } from "./_push.js";
 
 /* Daily reminders. Vercel calls these on the schedule in vercel.json. */
 const CLOSE = [
@@ -27,7 +27,12 @@ export default wrap(async (req, res) => {
   const key = `${kind}:${day}`;
   const ins = await sql`INSERT INTO sent (k) VALUES (${key}) ON CONFLICT DO NOTHING RETURNING k`;
   if (!ins.length) return res.status(200).json({ skipped: true });
-  const pool = kind === "close" ? CLOSE : kind === "open" ? OPEN : RESULTS;
+  /* The evening reminder only goes to people who haven't voted yet. */
+  if (kind === "close") {
+    const [{ n }] = await sql`SELECT count(*)::int AS n FROM docs WHERE col = 'profiles'`;
+    return res.status(200).json(await nudgeNonVoters(day, n));
+  }
+  const pool = kind === "open" ? OPEN : RESULTS;
   let [title, body] = pool[Math.floor(Math.random() * pool.length)];
   const weekday = new Date(`${etDay()}T12:00:00Z`).getUTCDay();
   if (kind === "results" && weekday === 1) { title = "👑 A new King of the Week has been crowned"; body = "Long live the King. Go see who it is and what punishment he picked."; }
